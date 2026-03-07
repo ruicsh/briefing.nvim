@@ -23,12 +23,25 @@ local function get_or_create_buf()
   return bufnr
 end
 
---- Compute centered floating window dimensions.
+--- Resolve a dimension value: 0–1 is treated as a fraction of `total`,
+--- any other positive number is used as an absolute value.
+---@param value number
+---@param total number  editor width or height in cells
+---@return integer
+local function resolve_dim(value, total)
+  if value > 0 and value <= 1 then
+    return math.floor(total * value)
+  end
+  return math.floor(value)
+end
+
+--- Build the win_config table from the current window options.
+--- Respects fractional width/height values.
 ---@return vim.api.keyset.win_config
-local function win_config()
+local function build_win_config()
   local opts = config.options.window
-  local width = opts.width
-  local height = opts.height
+  local width = resolve_dim(opts.width, vim.o.columns)
+  local height = resolve_dim(opts.height, vim.o.lines)
   local col = math.floor((vim.o.columns - width) / 2)
   local row = math.floor((vim.o.lines - height) / 2)
 
@@ -41,23 +54,52 @@ local function win_config()
     style = "minimal",
     border = opts.border,
     title = opts.title,
-    title_pos = "center",
+    title_pos = opts.title_pos or "center",
   }
 end
 
---- Set buffer-local keymaps for the briefing window.
+--- Built-in action handlers referenced by name in keymap entries.
+---@type table<string, fun()>
+local actions = {
+  send  = function() require("briefing").send() end,
+  close = function() require("briefing").close() end,
+}
+
+--- Set buffer-local keymaps from the named keymaps config.
+--- Entries set to `false` are skipped (disabled).
 ---@param bufnr integer
 local function set_keymaps(bufnr)
-  local km = config.options.keymaps
-  local opts = { buffer = bufnr, silent = true, nowait = true }
+  for name, km in pairs(config.options.keymaps) do
+    if km ~= false then
+      local lhs    = km[1]
+      local action = km[2]
+      local handler = type(action) == "function" and action or actions[action]
 
-  vim.keymap.set({ "n", "i" }, km.send, function()
-    require("briefing").send()
-  end, opts)
+      if not handler then
+        vim.notify(
+          ("Briefing: unknown keymap action %q for key %q"):format(tostring(action), name),
+          vim.log.levels.WARN
+        )
+        goto continue
+      end
 
-  vim.keymap.set("n", km.close, function()
-    require("briefing").close()
-  end, opts)
+      -- mode string like "ni" -> { "n", "i" }
+      local mode_str = km.mode or "n"
+      local modes = {}
+      for c in mode_str:gmatch(".") do
+        modes[#modes + 1] = c
+      end
+
+      vim.keymap.set(modes, lhs, handler, {
+        buffer  = bufnr,
+        silent  = true,
+        nowait  = true,
+        desc    = km.desc or ("Briefing " .. name),
+      })
+
+      ::continue::
+    end
+  end
 end
 
 --- Open (or focus) the briefing floating window.
@@ -71,16 +113,34 @@ function M.open()
     return
   end
 
+  -- Build win_config and allow the user callback to mutate it
+  local wc = build_win_config()
+  if config.options.window.config then
+    config.options.window.config(wc)
+  end
+
   -- Open the floating window
-  winid = vim.api.nvim_open_win(bufnr, true, win_config())
+  winid = vim.api.nvim_open_win(bufnr, true, wc)
   vim.t.briefing_winid = winid
 
-  -- Window-local options tuned for prose writing
-  vim.wo[winid].wrap = true
-  vim.wo[winid].linebreak = true
-  vim.wo[winid].number = false
+  -- Window-local options tuned for prose writing (defaults)
+  vim.wo[winid].wrap         = true
+  vim.wo[winid].linebreak    = true
+  vim.wo[winid].number       = false
   vim.wo[winid].relativenumber = false
-  vim.wo[winid].signcolumn = "no"
+  vim.wo[winid].signcolumn   = "no"
+
+  -- Apply user window-option overrides
+  local wo = config.options.window.wo or {}
+  for k, v in pairs(wo) do
+    vim.wo[winid][k] = v
+  end
+
+  -- Apply user buffer-option overrides
+  local bo = config.options.window.bo or {}
+  for k, v in pairs(bo) do
+    vim.bo[bufnr][k] = v
+  end
 
   set_keymaps(bufnr)
 
