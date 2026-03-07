@@ -183,72 +183,48 @@ require("briefing").setup({
 
 ## Configuration
 
-All options with their defaults:
+The plugin ships with safe defaults and exposes everything through
+`require("briefing").setup({ ... })`.
+
+<details>
+<summary>Default settings</summary>
+
+<!-- config:start -->
 
 ```lua
-require("briefing").setup({
-  -- Floating window
+---@class briefing.Config
+local defaults = {
+  ---@type briefing.Window.Opts
   window = {
+    --- Called just before the window opens.
+    --- Mutate the win_config table to override any option.
+    ---@type fun(win_config: vim.api.keyset.win_config)?
+    config = nil,
+    wo = {}, ---@type vim.wo  window-local option overrides
+    bo = {}, ---@type vim.bo  buffer-local option overrides
+    -- width / height: absolute integers, or 0–1 as a fraction of the editor size
     width = 80,
     height = 20,
     border = "rounded",
     title = " Briefing ",
+    title_pos = "center", ---@type "left"|"center"|"right"
   },
 
-  -- Syntax highlighting for tokens
-  syntax = {
-    enabled = true,
-  },
-
-  -- Context resolution
-  context = {
-    max_tokens = 100000,
-    file = {
-      relative_paths = true,
-      use_git_root = true,
-    },
-    diff = {
-      staged = false,
-      context = 3,
-    },
-    buffer = {
-      include_hidden = false,
-      max_lines = 5000,
-    },
-  },
-
-  -- Picker backend
-  picker = "snacks.picker",
-
-  -- Autocomplete backend
-  autocomplete = "blink",
-
-  -- Adapter
-  adapter = "callback",
-  adapter_config = {
-    callback = function(resolved_text)
-      vim.fn.setreg("+", resolved_text)
-    end,
-  },
-
-  -- Templates
-  templates = {},
-
-  -- Keymaps
+  --- Named keymaps for the briefing window.
+  --- Each entry is { lhs, action, mode?, desc? }.
+  --- Set any entry to `false` to disable that binding.
+  --- mode is a string of mode characters: "n" = normal, "i" = insert, "ni" = both.
+  ---@type table<string, briefing.Keymap|false>
   keymaps = {
-    send = "<c-s>",
-    close = "q",
-    reset = "<c-x>",
-    toggle_template_picker = "<c-t>",
+    send  = { "<c-s>", "send",  mode = "ni", desc = "send prompt to agent" },
+    close = { "q",     "close", mode = "n",  desc = "close the window" },
   },
-
-  -- Excluded from context resolution (e.g. buffer lists)
-  excludes = {
-    filetypes = { "help", "terminal", "nofile", "quickfix" },
-    buftypes = { "nofile", "prompt", "popup" },
-  },
-})
+}
 ```
+
+<!-- config:end -->
+
+</details>
 
 ## Adapters
 
