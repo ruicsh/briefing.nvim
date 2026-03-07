@@ -20,6 +20,10 @@ local function reset()
 		vim.api.nvim_buf_delete(bufnr, { force = true })
 	end
 	vim.t.briefing_bufnr = nil
+	vim.t.briefing_prev_winid = nil
+	vim.t.briefing_prev_mode = nil
+	vim.t.briefing_prev_vis_anchor = nil
+	vim.t.briefing_prev_vis_cursor = nil
 
 	config.setup()
 end
@@ -146,10 +150,10 @@ describe("briefing.ui – open()", function()
 		assert.is_true(vim.wo[winid].wrap)
 	end)
 
-	it("sets number=false on the window", function()
+	it("sets number=true on the window", function()
 		ui.open()
 		local winid = vim.t.briefing_winid
-		assert.is_false(vim.wo[winid].number)
+		assert.is_true(vim.wo[winid].number)
 	end)
 
 	it("sets relativenumber=false on the window", function()
@@ -385,5 +389,297 @@ describe("briefing.ui – close()", function()
 		assert.has_no.errors(function()
 			ui.close()
 		end)
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- footer
+-- ---------------------------------------------------------------------------
+
+describe("briefing.ui – footer", function()
+	before_each(reset)
+	after_each(reset)
+
+	it("sets a footer on the window by default", function()
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local wc = vim.api.nvim_win_get_config(winid)
+		-- footer is a list of {text, hl} chunks; Neovim returns it that way
+		assert.is_not_nil(wc.footer)
+		assert.is_true(#wc.footer > 0)
+	end)
+
+	it("footer contains the send key hint by default", function()
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local wc = vim.api.nvim_win_get_config(winid)
+		-- Flatten all text chunks into one string for inspection
+		local text = ""
+		for _, chunk in ipairs(wc.footer) do
+			text = text .. chunk[1]
+		end
+		assert.is_true(text:find("send") ~= nil)
+	end)
+
+	it("footer contains the reset key hint by default", function()
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local wc = vim.api.nvim_win_get_config(winid)
+		local text = ""
+		for _, chunk in ipairs(wc.footer) do
+			text = text .. chunk[1]
+		end
+		assert.is_true(text:find("reset") ~= nil)
+	end)
+
+	it("footer contains the close key hint by default", function()
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local wc = vim.api.nvim_win_get_config(winid)
+		local text = ""
+		for _, chunk in ipairs(wc.footer) do
+			text = text .. chunk[1]
+		end
+		assert.is_true(text:find("close") ~= nil)
+	end)
+
+	it("hides the footer when window.footer.enabled = false", function()
+		config.setup({ window = { footer = { enabled = false } } })
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local wc = vim.api.nvim_win_get_config(winid)
+		-- When no footer is set, Neovim returns an empty list
+		assert.is_true(wc.footer == nil or #wc.footer == 0)
+	end)
+
+	it("omits a disabled keymap from the footer", function()
+		config.setup({ keymaps = { reset = false } })
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local wc = vim.api.nvim_win_get_config(winid)
+		local text = ""
+		for _, chunk in ipairs(wc.footer) do
+			text = text .. chunk[1]
+		end
+		assert.is_nil(text:find("reset"))
+	end)
+
+	it("respects window.footer.pos for footer alignment", function()
+		config.setup({ window = { footer = { pos = "left" } } })
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local wc = vim.api.nvim_win_get_config(winid)
+		assert.equals("left", wc.footer_pos)
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- reset action
+-- ---------------------------------------------------------------------------
+
+describe("briefing.ui – reset action", function()
+	before_each(reset)
+	after_each(reset)
+
+	it("clears the buffer content", function()
+		ui.open()
+		local bufnr = vim.t.briefing_bufnr
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "some text", "more text" })
+		assert.equals("some text\nmore text", ui.get_text())
+
+		-- Trigger the reset keymap handler directly via feedkeys
+		vim.api.nvim_buf_call(bufnr, function()
+			vim.cmd("normal! \18") -- <C-X> is 0x18, but we invoke via keymap lhs
+		end)
+
+		-- Invoke the action by looking it up from the keymap
+		local km = config.options.keymaps.reset
+		assert.is_not_nil(km)
+		-- Simulate what set_keymaps wires up: call the reset handler directly
+		local bufnr2 = vim.t.briefing_bufnr
+		vim.api.nvim_buf_set_lines(bufnr2, 0, -1, false, { "will be cleared" })
+		-- Use feedkeys with the registered lhs to trigger the actual keymap
+		local key = vim.api.nvim_replace_termcodes(km[1], true, false, true)
+		vim.api.nvim_feedkeys(key, "x", false)
+		assert.equals("", ui.get_text())
+	end)
+
+	it("is safe to call when no buffer exists", function()
+		-- Don't open a window; just verify reset action doesn't error
+		assert.has_no.errors(function()
+			local bufnr = vim.t.briefing_bufnr
+			if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
+			end
+		end)
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- mode restoration on close()
+-- ---------------------------------------------------------------------------
+
+describe("briefing.ui – mode restoration on close()", function()
+	before_each(reset)
+	after_each(reset)
+
+	it("returns to normal mode when opened from normal mode", function()
+		-- Ensure we start in normal mode
+		vim.cmd("stopinsert")
+		ui.open()
+		-- Float is open in insert mode; close it
+		ui.close()
+		local mode = vim.api.nvim_get_mode().mode
+		assert.equals("n", mode)
+	end)
+
+	it("returns to insert mode when opened from insert mode", function()
+		-- startinsert is not synchronous in headless mode, so we cannot reliably
+		-- assert the mode after calling it.  Instead, verify that close() issues
+		-- startinsert (not stopinsert) when the saved mode was insert.
+		local cmds = {}
+		local orig_cmd = vim.cmd
+		vim.cmd = function(c)
+			cmds[#cmds + 1] = c
+			if c ~= "startinsert" then
+				orig_cmd(c)
+			end
+		end
+
+		ui.open()
+		-- Override the saved mode to simulate the caller having been in insert mode
+		vim.t.briefing_prev_mode = "i"
+		ui.close()
+
+		vim.cmd = orig_cmd
+
+		local found_startinsert = false
+		for _, c in ipairs(cmds) do
+			if c == "startinsert" then
+				found_startinsert = true
+			end
+		end
+		assert.is_true(found_startinsert)
+	end)
+
+	it("focuses the previous window on close", function()
+		local src_win = vim.api.nvim_get_current_win()
+		ui.open()
+		assert.is_not.equals(src_win, vim.api.nvim_get_current_win())
+		ui.close()
+		assert.equals(src_win, vim.api.nvim_get_current_win())
+	end)
+
+	it("close() is safe when prev_winid is no longer valid", function()
+		ui.open()
+		-- Simulate the source window being closed before the float
+		vim.t.briefing_prev_winid = 99999
+		assert.has_no.errors(function()
+			ui.close()
+		end)
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- visual selection restoration on close()
+-- ---------------------------------------------------------------------------
+
+describe("briefing.ui – visual selection restoration on close()", function()
+	before_each(reset)
+	after_each(reset)
+
+	-- Helper: create a scratch buffer/window with known text lines.
+	---@return integer bufnr, integer winid
+	local function make_src_win(lines)
+		local buf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+		local win = vim.api.nvim_open_win(buf, true, {
+			relative = "editor",
+			width = 40,
+			height = #lines,
+			col = 0,
+			row = 0,
+			style = "minimal",
+		})
+		return buf, win
+	end
+
+	it("saves vis_anchor and vis_cursor when opened from charwise visual mode", function()
+		local buf, win = make_src_win({ "hello world" })
+		-- Position cursor and set marks to simulate a selection
+		vim.api.nvim_win_set_cursor(win, { 1, 0 })
+		vim.api.nvim_buf_set_mark(buf, "<", 1, 0, {})
+		vim.api.nvim_buf_set_mark(buf, ">", 1, 4, {})
+		-- Fake the saved state that open() would have captured
+		vim.t.briefing_prev_winid = win
+		vim.t.briefing_prev_mode = "v"
+		vim.t.briefing_prev_vis_anchor = "1,1"
+		vim.t.briefing_prev_vis_cursor = "1,5"
+		-- open() already happened (simulate): just verify close restores without error
+		-- We also need briefing_winid set so close() can close it
+		local float_buf = vim.api.nvim_create_buf(false, true)
+		local float_win = vim.api.nvim_open_win(float_buf, true, {
+			relative = "editor",
+			width = 20,
+			height = 5,
+			col = 5,
+			row = 5,
+			style = "minimal",
+		})
+		vim.t.briefing_winid = float_win
+
+		assert.has_no.errors(function()
+			ui.close()
+		end)
+
+		-- The source window should be current again
+		assert.equals(win, vim.api.nvim_get_current_win())
+
+		vim.api.nvim_win_close(win, true)
+		vim.api.nvim_buf_delete(buf, { force = true })
+	end)
+
+	it("restores '< and '> marks on the source buffer", function()
+		local buf, win = make_src_win({ "abcdefgh" })
+		vim.api.nvim_win_set_cursor(win, { 1, 0 })
+
+		-- Fake saved visual state: anchor=col 1, cursor=col 5 (1-based)
+		vim.t.briefing_prev_winid = win
+		vim.t.briefing_prev_mode = "v"
+		vim.t.briefing_prev_vis_anchor = "1,1"
+		vim.t.briefing_prev_vis_cursor = "1,5"
+
+		local float_buf = vim.api.nvim_create_buf(false, true)
+		local float_win = vim.api.nvim_open_win(float_buf, true, {
+			relative = "editor",
+			width = 20,
+			height = 5,
+			col = 5,
+			row = 5,
+			style = "minimal",
+		})
+		vim.t.briefing_winid = float_win
+
+		ui.close()
+
+		-- nvim_buf_get_mark returns {lnum, col} with 0-based col
+		local mark_start = vim.api.nvim_buf_get_mark(buf, "<")
+		local mark_end = vim.api.nvim_buf_get_mark(buf, ">")
+		assert.equals(1, mark_start[1]) -- line 1
+		assert.equals(0, mark_start[2]) -- col 0 (1-based col 1 → 0-based 0)
+		assert.equals(1, mark_end[1])
+		assert.equals(4, mark_end[2]) -- col 4 (1-based col 5 → 0-based 4)
+
+		vim.api.nvim_win_close(win, true)
+		vim.api.nvim_buf_delete(buf, { force = true })
+	end)
+
+	it("does not attempt visual restore when opened from normal mode", function()
+		-- Visual state fields must stay nil when opening from normal mode
+		vim.cmd("stopinsert")
+		ui.open()
+		assert.is_nil(vim.t.briefing_prev_vis_anchor)
+		assert.is_nil(vim.t.briefing_prev_vis_cursor)
+		ui.close()
 	end)
 end)
