@@ -77,7 +77,7 @@ function M.resolve(token, prev_winid)
 	if token.name == "buffer" then
 		return require("briefing.context.buffer").resolve(token.suboption, prev_winid)
 	elseif token.name == "selection" then
-		return require("briefing.context.selection").resolve(prev_winid)
+		return require("briefing.context.selection").resolve()
 	elseif token.name == "diagnostics" then
 		return require("briefing.context.diagnostics").resolve(token.suboption, prev_winid)
 	elseif token.name == "diff" then

@@ -147,17 +147,20 @@ describe("briefing.context.selection.resolve()", function()
 		if test_bufnr and vim.api.nvim_buf_is_valid(test_bufnr) then
 			vim.api.nvim_buf_delete(test_bufnr, { force = true })
 		end
-		vim.t.briefing_prev_vis_anchor = nil
-		vim.t.briefing_prev_vis_cursor = nil
+		-- Clear register z
+		vim.fn.setreg("z", "")
 		package.loaded["briefing.context.selection"] = nil
 	end)
 
-	it("returns empty string and warns when no selection is stored", function()
+	it("returns empty string and warns when register z is empty", function()
 		local notified_level = nil
 		local orig = vim.notify
 		vim.notify = function(_, level)
 			notified_level = level
 		end
+
+		-- Clear register z
+		vim.fn.setreg("z", "")
 
 		local result = selection_resolver.resolve(test_winid)
 
@@ -167,9 +170,10 @@ describe("briefing.context.selection.resolve()", function()
 	end)
 
 	it("returns selected content wrapped in a fenced code block", function()
-		-- Select lines 1-2, full lines (col 1 to end of line 2)
-		vim.t.briefing_prev_vis_anchor = "1,1"
-		vim.t.briefing_prev_vis_cursor = "2,11" -- "local b = 2" is 11 chars
+		-- Set current window to test_winid so filetype is correct
+		vim.api.nvim_set_current_win(test_winid)
+		-- Set register z with simulated selection content
+		vim.fn.setreg("z", "local a = 1\nlocal b = 2")
 
 		local result = selection_resolver.resolve(test_winid)
 		assert.is_true(result:find("```lua") ~= nil)
@@ -177,83 +181,31 @@ describe("briefing.context.selection.resolve()", function()
 	end)
 
 	it("includes the filetype in the fenced code block header", function()
-		vim.t.briefing_prev_vis_anchor = "1,1"
-		vim.t.briefing_prev_vis_cursor = "1,11"
+		vim.api.nvim_set_current_win(test_winid)
+		vim.fn.setreg("z", "local a = 1")
 
 		local result = selection_resolver.resolve(test_winid)
 		assert.is_true(result:find("```lua") ~= nil)
 	end)
 
-	it("handles anchor after cursor (normalises order)", function()
-		-- Anchor is on line 3, cursor is on line 1 — selection is line 1-3
-		vim.t.briefing_prev_vis_anchor = "3,1"
-		vim.t.briefing_prev_vis_cursor = "1,1"
-
-		local result = selection_resolver.resolve(test_winid)
-		assert.is_not_nil(result)
-		assert.is_true(#result > 0)
-		assert.is_true(result:find("local a = 1") ~= nil)
-	end)
-
-	it("uses current window buffer when prev_winid is nil", function()
+	it("strips trailing newline from yanked content", function()
 		vim.api.nvim_set_current_win(test_winid)
-		vim.t.briefing_prev_vis_anchor = "1,1"
-		vim.t.briefing_prev_vis_cursor = "1,5"
-
-		local result = selection_resolver.resolve(nil)
-		assert.is_not_nil(result)
-		assert.is_true(#result > 0)
-	end)
-
-	it("does not clip characters on a single-line mid-line selection", function()
-		-- "local a = 1": 'a' is at col 7, '1' is at col 11.
-		-- Single-line selection where start_col > 1 exercises the aliasing fix:
-		-- lines[1] and lines[#lines] are the same slot, so end-col trim must not
-		-- corrupt the string before start-col trim is applied.
-		vim.t.briefing_prev_vis_anchor = "1,7"
-		vim.t.briefing_prev_vis_cursor = "1,11"
+		-- Yank adds a trailing newline, verify it's stripped
+		vim.fn.setreg("z", "local a = 1\n")
 
 		local result = selection_resolver.resolve(test_winid)
-		-- Content inside the fenced block must be exactly "a = 1"
-		assert.is_true(result:find("a = 1") ~= nil, "expected 'a = 1' in result, got: " .. result)
-		assert.is_nil(result:find("local"), "start_col trim failed: 'local' should have been excluded")
+		-- Should have exactly one newline (between header and content) plus closing fence
+		assert.is_true(result:find("```lua\nlocal a = 1\n```") ~= nil)
 	end)
 
-	it("does not clip the first character when selection starts mid-line (indented)", function()
-		-- Simulate a line indented with a tab: the visible content starts at col 2.
-		-- The selection anchor is on the 'k' of 'keymaps', i.e. col 2 (1-based byte).
-		-- col 1 = tab, col 2 = 'k'.
-		local indented_bufnr = vim.api.nvim_create_buf(false, true)
-		vim.bo[indented_bufnr].filetype = "lua"
-		vim.api.nvim_buf_set_lines(indented_bufnr, 0, -1, false, {
-			"\tkeymaps = {",
-			"\t\tclose = {},",
-			"\t},",
-		})
-		local indented_winid = vim.api.nvim_open_win(indented_bufnr, false, {
-			relative = "editor",
-			width = 30,
-			height = 3,
-			col = 0,
-			row = 0,
-			style = "minimal",
-		})
+	it("handles multi-line selection", function()
+		vim.api.nvim_set_current_win(test_winid)
+		vim.fn.setreg("z", "line one\nline two\nline three")
 
-		-- anchor at 'k' (col 2), cursor at end of last line
-		vim.t.briefing_prev_vis_anchor = "1,2"
-		vim.t.briefing_prev_vis_cursor = "3,3"
-
-		local result = selection_resolver.resolve(indented_winid)
-
-		vim.api.nvim_win_close(indented_winid, true)
-		vim.api.nvim_buf_delete(indented_bufnr, { force = true })
-
-		-- First character of the resolved content must be 'k', not 'e' or any other
-		-- trimmed variant — guards against off-by-one in start_col handling.
-		-- Use a newline anchor so we match the start of the content line, not a
-		-- substring inside 'keymaps' itself.
-		assert.is_true(result:find("keymaps") ~= nil, "expected 'keymaps' in result, got: " .. result)
-		assert.is_nil(result:find("\neymaps ="), "start was clipped: first content line begins with 'eymaps' not 'keymaps'")
+		local result = selection_resolver.resolve(test_winid)
+		assert.is_true(result:find("line one") ~= nil)
+		assert.is_true(result:find("line two") ~= nil)
+		assert.is_true(result:find("line three") ~= nil)
 	end)
 end)
 
