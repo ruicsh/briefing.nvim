@@ -15,9 +15,11 @@ function M.close()
 	require("briefing.ui").close()
 end
 
---- Send the current buffer contents to sidekick, then close the window.
+--- Send the current buffer contents to the configured adapter, then close the window.
+--- Context tokens (e.g. `#buffer`) are resolved or translated before sending.
 function M.send()
-	local text = require("briefing.ui").get_text()
+	local ui = require("briefing.ui")
+	local text = ui.get_text()
 
 	-- Strip leading/trailing whitespace
 	text = text:match("^%s*(.-)%s*$")
@@ -27,13 +29,11 @@ function M.send()
 		return
 	end
 
-	local ok, sidekick_cli = pcall(require, "sidekick.cli")
-	if not ok then
-		vim.notify("Briefing: sidekick.nvim is not installed", vim.log.levels.ERROR)
-		return
-	end
+	-- Capture prev_winid before close() clears it
+	local prev_winid = ui.get_prev_winid()
 
-	sidekick_cli.send({ msg = text })
+	local tokens = require("briefing.context").parse(text)
+	require("briefing.adapter").send(text, tokens, prev_winid)
 	M.close()
 end
 

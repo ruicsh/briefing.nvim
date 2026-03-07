@@ -25,6 +25,10 @@ local function reset()
 	-- install or remove sidekick don't bleed into each other.
 	package.loaded["sidekick.cli"] = nil
 	package.preload["sidekick.cli"] = nil
+	package.loaded["briefing.adapter"] = nil
+	package.loaded["briefing.adapter.callback"] = nil
+	package.loaded["briefing.adapter.sidekick"] = nil
+	package.loaded["briefing.context"] = nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -127,8 +131,10 @@ describe("briefing.send()", function()
 		assert.equals(vim.log.levels.WARN, notified_level)
 	end)
 
-	it("notifies ERROR when sidekick.nvim is not installed", function()
+	it("notifies ERROR when using the sidekick adapter and sidekick.nvim is not installed", function()
 		set_buffer_text({ "hello" })
+		-- Configure the sidekick adapter
+		config.setup({ adapter = "sidekick" })
 		-- Ensure sidekick.cli is absent
 		package.loaded["sidekick.cli"] = nil
 		package.preload["sidekick.cli"] = nil
@@ -145,8 +151,9 @@ describe("briefing.send()", function()
 		assert.equals(vim.log.levels.ERROR, notified_level)
 	end)
 
-	it("calls sidekick_cli.send() with the trimmed buffer text", function()
+	it("sends via sidekick adapter with the trimmed buffer text", function()
 		set_buffer_text({ "  hello world  " })
+		config.setup({ adapter = "sidekick" })
 
 		local received = nil
 		package.preload["sidekick.cli"] = function()
@@ -165,8 +172,9 @@ describe("briefing.send()", function()
 		assert.equals("hello world", received.msg)
 	end)
 
-	it("calls sidekick_cli.send() with multi-line text intact", function()
+	it("sends via sidekick adapter with multi-line text intact", function()
 		set_buffer_text({ "line one", "line two" })
+		config.setup({ adapter = "sidekick" })
 
 		local received = nil
 		package.preload["sidekick.cli"] = function()
@@ -186,11 +194,11 @@ describe("briefing.send()", function()
 
 	it("closes the window after a successful send", function()
 		set_buffer_text({ "send this" })
-
-		package.preload["sidekick.cli"] = function()
-			return { send = function() end }
-		end
-		package.loaded["sidekick.cli"] = nil
+		-- Use callback adapter with a no-op callback to avoid clipboard side effects
+		config.setup({
+			adapter = "callback",
+			adapter_config = { callback = function() end },
+		})
 
 		briefing.send()
 

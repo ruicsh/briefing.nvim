@@ -3,3 +3,4 @@ indent_type = "Tabs"
 indent_width = 1
 quote_style = "AutoPreferDouble"
 call_parentheses = "Always"
+syntax = "Lua52"

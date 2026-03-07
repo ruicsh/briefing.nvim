@@ -252,6 +252,13 @@ function M.close()
 	end
 end
 
+--- Return the window handle that was active before the briefing window opened.
+--- Returns nil when no briefing window has been opened in this tab yet.
+---@return integer|nil
+function M.get_prev_winid()
+	return vim.t.briefing_prev_winid
+end
+
 --- Return the current buffer contents as a single string.
 ---@return string
 function M.get_text()

@@ -194,6 +194,19 @@ The plugin ships with safe defaults and exposes everything through
 ```lua
 ---@class briefing.Config
 local defaults = {
+  --- Adapter used when sending the prompt.
+  --- Built-in values: "callback" (default), "sidekick".
+  --- May also be a table implementing the adapter interface.
+  ---@type string|table
+  adapter = "callback",
+
+  ---@type briefing.AdapterConfig
+  adapter_config = {
+    --- Called by the callback adapter with the fully resolved prompt text.
+    --- Default (nil): copies the prompt to the system clipboard.
+    callback = nil,
+  },
+
   ---@type briefing.Window.Opts
   window = {
     --- Called just before the window opens.
