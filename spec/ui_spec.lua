@@ -227,6 +227,115 @@ describe("briefing.ui – open()", function()
 end)
 
 -- ---------------------------------------------------------------------------
+-- set_keymaps() – mode formats
+-- ---------------------------------------------------------------------------
+
+describe("briefing.ui – keymaps", function()
+	before_each(reset)
+	after_each(reset)
+
+	--- Return all buffer-local keymaps for `mode` on the briefing buffer.
+	---@param mode string  single mode character e.g. "n" or "i"
+	---@return vim.api.keyset.keymap[]
+	local function buf_keymaps(mode)
+		local bufnr = vim.t.briefing_bufnr
+		return vim.api.nvim_buf_get_keymap(bufnr, mode)
+	end
+
+	--- Return true if `lhs` is mapped in `mode` on the briefing buffer.
+	---@param mode string
+	---@param lhs string
+	---@return boolean
+	local function has_keymap(mode, lhs)
+		-- Neovim normalises <c-x> to <C-X> in the keymap list
+		local normalised = vim.keycode(lhs)
+		for _, km in ipairs(buf_keymaps(mode)) do
+			if vim.keycode(km.lhs) == normalised then
+				return true
+			end
+		end
+		return false
+	end
+
+	it("string mode 'n' registers the keymap only in normal mode", function()
+		config.setup({
+			keymaps = {
+				close = { "<c-d>", "close", mode = "n", desc = "close" },
+			},
+		})
+		ui.open()
+		assert.is_true(has_keymap("n", "<c-d>"))
+		assert.is_false(has_keymap("i", "<c-d>"))
+	end)
+
+	it("string mode 'ni' registers the keymap in both normal and insert mode", function()
+		config.setup({
+			keymaps = {
+				close = { "<c-d>", "close", mode = "ni", desc = "close" },
+			},
+		})
+		ui.open()
+		assert.is_true(has_keymap("n", "<c-d>"))
+		assert.is_true(has_keymap("i", "<c-d>"))
+	end)
+
+	it("table mode { 'n', 'i' } registers the keymap in both normal and insert mode", function()
+		config.setup({
+			keymaps = {
+				close = { "<c-d>", "close", mode = { "n", "i" }, desc = "close" },
+			},
+		})
+		ui.open()
+		assert.is_true(has_keymap("n", "<c-d>"))
+		assert.is_true(has_keymap("i", "<c-d>"))
+	end)
+
+	it("omitting mode defaults to normal mode only", function()
+		config.setup({
+			keymaps = {
+				close = { "<c-d>", "close", desc = "close" },
+			},
+		})
+		ui.open()
+		assert.is_true(has_keymap("n", "<c-d>"))
+		assert.is_false(has_keymap("i", "<c-d>"))
+	end)
+
+	it("warns and skips a keymap with an unknown action", function()
+		local warned = false
+		local orig_notify = vim.notify
+		vim.notify = function(msg, level)
+			if level == vim.log.levels.WARN and msg:find("unknown keymap action") then
+				warned = true
+			end
+		end
+
+		config.setup({
+			keymaps = {
+				close = { "<c-d>", "not_a_real_action", mode = "n", desc = "close" },
+			},
+		})
+		assert.has_no.errors(function()
+			ui.open()
+		end)
+		assert.is_true(warned)
+
+		vim.notify = orig_notify
+	end)
+
+	it("setting a keymap to false skips it entirely", function()
+		config.setup({
+			keymaps = {
+				close = false,
+			},
+		})
+		ui.open()
+		-- default close key "q" must not be registered
+		assert.is_false(has_keymap("n", "q"))
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
 -- close()
 -- ---------------------------------------------------------------------------
 

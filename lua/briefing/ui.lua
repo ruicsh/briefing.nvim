@@ -84,11 +84,16 @@ local function set_keymaps(bufnr)
 				goto continue
 			end
 
-			-- mode string like "ni" -> { "n", "i" }
-			local mode_str = km.mode or "n"
-			local modes = {}
-			for c in mode_str:gmatch(".") do
-				modes[#modes + 1] = c
+			-- mode: a string like "ni" -> { "n", "i" }, or already a table like { "n", "i" }
+			local modes
+			if type(km.mode) == "table" then
+				modes = km.mode
+			else
+				local mode_str = type(km.mode) == "string" and km.mode or "n"
+				modes = {}
+				for c in string.gmatch(mode_str, ".") do
+					modes[#modes + 1] = c
+				end
 			end
 
 			vim.keymap.set(modes, lhs, handler, {

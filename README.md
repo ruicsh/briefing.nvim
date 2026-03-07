@@ -76,21 +76,21 @@ The autocomplete source only activates in briefing buffers (filetype `briefing`)
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `:Briefing` | Open the floating window |
-| `:Briefing <template>` | Open with a template pre-loaded |
+| Command                    | Description                                     |
+| -------------------------- | ----------------------------------------------- |
+| `:Briefing`                | Open the floating window                        |
+| `:Briefing <template>`     | Open with a template pre-loaded                 |
 | `:BriefingTemplate <name>` | Apply a template to the current briefing buffer |
-| `:BriefingSend` | Send the prompt to the configured agent |
+| `:BriefingSend`            | Send the prompt to the configured agent         |
 
 ### Keymaps
 
-| Key | Mode | Action |
-|-----|------|--------|
-| `<C-s>` | insert/normal | Send prompt to agent |
-| `q` | normal | Close window (content persists) |
+| Key     | Mode          | Action                           |
+| ------- | ------------- | -------------------------------- |
+| `<C-s>` | insert/normal | Send prompt to agent             |
+| `q`     | normal        | Close window (content persists)  |
 | `<C-x>` | insert/normal | Reset buffer (clear all content) |
-| `<C-t>` | insert/normal | Open template picker |
+| `<C-t>` | insert/normal | Open template picker             |
 
 ### Workflow
 
@@ -114,36 +114,36 @@ Select text, then run `:Briefing`. The selection is captured and can be referenc
 
 Context variables insert editor state into your prompt. Type `#` in the briefing buffer to see completions.
 
-| Variable | Description | Sub-options |
-|----------|-------------|-------------|
-| `#buffer` | Current buffer contents | `#buffer:diff` (changed portions only), `#buffer:all` (entire buffer, default) |
-| `#selection` | Visual selection captured when the window was opened — resolves to empty if no selection was active | — |
-| `#diagnostics` | LSP diagnostics | `#diagnostics:buffer` (current buffer, default), `#diagnostics:all` (workspace) |
-| `#diff` | Git diff output | bare `#diff` defaults to unstaged; `#diff:staged`, `#diff:<sha>` (specific commit) |
-| `#file:<path>` | A specific file's content | `<tab>` opens a file picker; multi-select inserts multiple `#file:` tokens |
-| `#files:<path>` | All files in a directory | `#files:grep` (pattern search), `#files:glob` (glob match) |
-| `#quickfix` | Quickfix list contents | — |
+| Variable        | Description                                                                                         | Sub-options                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `#buffer`       | Current buffer contents                                                                             | `#buffer:diff` (changed portions only), `#buffer:all` (entire buffer, default)     |
+| `#selection`    | Visual selection captured when the window was opened — resolves to empty if no selection was active | —                                                                                  |
+| `#diagnostics`  | LSP diagnostics                                                                                     | `#diagnostics:buffer` (current buffer, default), `#diagnostics:all` (workspace)    |
+| `#diff`         | Git diff output                                                                                     | bare `#diff` defaults to unstaged; `#diff:staged`, `#diff:<sha>` (specific commit) |
+| `#file:<path>`  | A specific file's content                                                                           | `<tab>` opens a file picker; multi-select inserts multiple `#file:` tokens         |
+| `#files:<path>` | All files in a directory                                                                            | `#files:grep` (pattern search), `#files:glob` (glob match)                         |
+| `#quickfix`     | Quickfix list contents                                                                              | —                                                                                  |
 
 ## Resources (`@`)
 
 Resources are explicit references to external content. Type `@` then `<tab>` to open a picker, or type the path manually. URLs are recognized as standalone tokens without a prefix.
 
-| Syntax | Description |
-|--------|-------------|
-| `@<file-path>` | Attach a specific file |
-| `@<folder-path>` | Attach all files in a directory |
+| Syntax            | Description                                                                      |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `@<file-path>`    | Attach a specific file                                                           |
+| `@<folder-path>`  | Attach all files in a directory                                                  |
 | `http(s)://<url>` | Reference a URL (translated to the agent's web fetch tool; no `@` prefix needed) |
 
 ## Picker
 
 When `<tab>` is pressed after a token that accepts input, an interactive picker opens:
 
-| Trigger | Picker | Result |
-|---------|--------|--------|
-| `#file:<tab>` | File picker | `#file:src/foo.lua` (multi-select supported) |
-| `#files:<tab>` | Directory picker | `#files:src/` |
-| `#files:grep<tab>` | Grep picker | Grep results |
-| `@<tab>` | File picker | `@src/foo.lua` |
+| Trigger            | Picker           | Result                                       |
+| ------------------ | ---------------- | -------------------------------------------- |
+| `#file:<tab>`      | File picker      | `#file:src/foo.lua` (multi-select supported) |
+| `#files:<tab>`     | Directory picker | `#files:src/`                                |
+| `#files:grep<tab>` | Grep picker      | Grep results                                 |
+| `@<tab>`           | File picker      | `@src/foo.lua`                               |
 
 Multi-select in the file picker produces separate tokens: `#file:a.lua #file:b.lua`.
 
@@ -273,12 +273,12 @@ require("briefing").reset()                      -- clear buffer
 
 Tokens in the briefing buffer are highlighted:
 
-| Pattern | Highlight Group | Default Link |
-|---------|----------------|--------------|
-| `#context` | `BriefingContext` | `@keyword` |
-| `#context:suboption` | `BriefingContext` + dimmed suboption | `@keyword` |
-| `@path` | `BriefingResource` | `@string` |
-| `http(s)://url` | `BriefingUrl` | `@markup.link.url` |
+| Pattern              | Highlight Group                      | Default Link       |
+| -------------------- | ------------------------------------ | ------------------ |
+| `#context`           | `BriefingContext`                    | `@keyword`         |
+| `#context:suboption` | `BriefingContext` + dimmed suboption | `@keyword`         |
+| `@path`              | `BriefingResource`                   | `@string`          |
+| `http(s)://url`      | `BriefingUrl`                        | `@markup.link.url` |
 
 Override these highlight groups in your colorscheme to customize appearance.
 
