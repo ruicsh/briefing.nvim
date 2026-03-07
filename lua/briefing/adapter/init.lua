@@ -1,17 +1,17 @@
 local M = {}
 
 --- Return the configured adapter module.
---- Accepts a string name ("callback", "sidekick") or a pre-built adapter table.
+--- Resolves adapter.name: "callback", "sidekick", or a custom adapter table.
 ---@return table  adapter module with a send() function
 function M.get()
 	local cfg = require("briefing.config").options
-	local adapter = cfg.adapter
+	local name = cfg.adapter.name
 
-	if type(adapter) == "table" then
-		return adapter
+	if type(name) == "table" then
+		return name
 	end
 
-	if adapter == "sidekick" then
+	if name == "sidekick" then
 		return require("briefing.adapter.sidekick")
 	end
 

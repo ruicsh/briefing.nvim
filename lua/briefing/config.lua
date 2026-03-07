@@ -25,24 +25,29 @@ local M = {}
 ---@field footer? briefing.Footer  footer keymap hints rendered on the window border
 
 --- Adapter configuration for the briefing send action.
----@class briefing.AdapterConfig
+---@class briefing.Adapter
+---@field name string|table  built-in adapter name ("sidekick" | "callback") or a custom adapter table
 ---@field callback? fun(resolved_text: string)  called by the callback adapter with the fully resolved prompt
 ---@field sidekick? briefing.SidekickAdapterConfig
 
 --- Configuration for the sidekick adapter.
 ---@class briefing.SidekickAdapterConfig
----@field tool? string  sidekick CLI tool name to target (e.g. "opencode"). nil uses the active session.
-
+---@field tool? string          sidekick CLI tool name to target (e.g. "opencode"). nil uses the active session.
+---@field submit? boolean       submit the prompt automatically after appending (default: true)
 ---@class briefing.Config
 local defaults = {
-	--- Adapter used when sending the prompt.
-	--- Built-in values: "callback", "sidekick" (default).
-	--- May also be a table implementing the adapter interface.
-	---@type string|table
-	adapter = "sidekick",
+	--- Enable debug logging via vim.notify (WARN level).
+	--- Messages are prefixed with "Briefing [debug]:".
+	--- Default: false
+	---@type boolean
+	debug = false,
 
-	---@type briefing.AdapterConfig
-	adapter_config = {
+	---@type briefing.Adapter
+	adapter = {
+		--- Built-in adapter to use: "sidekick" (default) or "callback".
+		--- May also be a table implementing the adapter interface ({ send = fun(...) }).
+		name = "sidekick",
+
 		--- Called by the callback adapter with the fully resolved prompt text.
 		--- Default (nil): copies the prompt to the system clipboard.
 		callback = nil,
@@ -54,6 +59,12 @@ local defaults = {
 			--- Default (nil): sends to whichever sidekick session is currently active.
 			---@type string?
 			tool = nil,
+
+			--- Automatically submit the prompt after appending it to the tool input.
+			--- Set to false to only append without submitting (useful for review before send).
+			--- Default: true
+			---@type boolean
+			submit = true,
 		},
 	},
 

@@ -194,14 +194,21 @@ The plugin ships with safe defaults and exposes everything through
 ```lua
 ---@class briefing.Config
 local defaults = {
+  --- Enable debug logging to :messages (via echom).
+  --- Messages are prefixed with "Briefing [debug]:".
+  --- Default: false
+  ---@type boolean
+  debug = false,
+
   --- Adapter used when sending the prompt.
   --- Built-in values: "sidekick" (default), "callback".
   --- May also be a table implementing the adapter interface.
-  ---@type string|table
-  adapter = "sidekick",
+  ---@type briefing.Adapter
+  adapter = {
+    --- Built-in adapter to use: "sidekick" (default) or "callback".
+    --- May also be a table implementing the adapter interface ({ send = fun(...) }).
+    name = "sidekick",
 
-  ---@type briefing.AdapterConfig
-  adapter_config = {
     --- Called by the callback adapter with the fully resolved prompt text.
     --- Default (nil): copies the prompt to the system clipboard.
     callback = nil,
@@ -213,6 +220,12 @@ local defaults = {
       --- Default (nil): sends to whichever sidekick session is currently active.
       ---@type string?
       tool = nil,
+
+      --- Automatically submit the prompt after appending it to the tool input.
+      --- Set to false to only append without submitting (useful for review before send).
+      --- Default: true
+      ---@type boolean
+      submit = true,
     },
   },
 
@@ -260,14 +273,18 @@ Adapters translate your resolved prompt into the format expected by each agent.
 
 ### `sidekick` (default)
 
-Sends the prompt through [sidekick.nvim](https://github.com/folke/sidekick.nvim). Tokens are translated to sidekick's native context variables where possible, so sidekick handles their resolution. Tokens without a sidekick equivalent (like `#diff`) are resolved by briefing.nvim directly.
+Sends the prompt through [sidekick.nvim](https://github.com/folke/sidekick.nvim). When `tool = "opencode"`, `#buffer` and `#buffer:all` are translated to `@<absolute-path>` so opencode can resolve the file itself. All other tokens are resolved by briefing.nvim and inlined as text before sending.
 
 ```lua
 require("briefing").setup({
-  adapter = "sidekick",
-  -- Optionally pin a specific tool so you never have to pick one:
-  adapter_config = {
-    sidekick = { tool = "opencode" }, -- or "claude", "gemini", etc.
+  adapter = {
+    name = "sidekick",
+    sidekick = {
+      -- Pin a specific tool so you never have to pick one:
+      tool = "opencode", -- or "claude", "gemini", etc.
+      -- Set to false to append the prompt without auto-submitting:
+      submit = true,     -- default
+    },
   },
 })
 ```
@@ -278,10 +295,10 @@ Requires `folke/sidekick.nvim` to be installed and configured.
 
 Resolves all tokens into plain text and passes the result to a callback function. The default callback copies the prompt to the system clipboard.
 
-```lua
+````lua
 require("briefing").setup({
-  adapter = "callback",
-  adapter_config = {
+  adapter = {
+    name = "callback",
     callback = function(resolved_text)
       vim.fn.setreg("+", resolved_text)
       vim.notify("Copied to clipboard!")
@@ -298,7 +315,7 @@ require("briefing").open({ content = "text" })   -- open with content
 require("briefing").send()                       -- send current buffer
 require("briefing").close()                      -- close window
 require("briefing").reset()                      -- clear buffer
-```
+````
 
 ## Syntax Highlighting
 

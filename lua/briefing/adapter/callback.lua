@@ -25,7 +25,7 @@ local function resolve_text(raw_text, tokens, prev_winid)
 end
 
 --- Send the resolved prompt via the callback adapter.
---- Calls `adapter_config.callback(resolved_text)` when configured, or falls
+--- Calls `adapter.callback(resolved_text)` when configured, or falls
 --- back to copying to the system clipboard (`+` register).
 ---@param raw_text string
 ---@param tokens briefing.Token[]
@@ -34,7 +34,7 @@ function M.send(raw_text, tokens, prev_winid)
 	local resolved = resolve_text(raw_text, tokens, prev_winid)
 
 	local cfg = require("briefing.config").options
-	local cb = cfg.adapter_config and cfg.adapter_config.callback
+	local cb = cfg.adapter and cfg.adapter.callback
 
 	if type(cb) == "function" then
 		cb(resolved)

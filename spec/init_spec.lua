@@ -25,6 +25,10 @@ local function reset()
 	-- install or remove sidekick don't bleed into each other.
 	package.loaded["sidekick.cli"] = nil
 	package.preload["sidekick.cli"] = nil
+	package.loaded["sidekick.cli.session"] = nil
+	package.preload["sidekick.cli.session"] = nil
+	package.loaded["sidekick.cli.state"] = nil
+	package.preload["sidekick.cli.state"] = nil
 	package.loaded["briefing.adapter"] = nil
 	package.loaded["briefing.adapter.callback"] = nil
 	package.loaded["briefing.adapter.sidekick"] = nil
@@ -134,7 +138,7 @@ describe("briefing.send()", function()
 	it("notifies ERROR when using the sidekick adapter and sidekick.nvim is not installed", function()
 		set_buffer_text({ "hello" })
 		-- Configure the sidekick adapter
-		config.setup({ adapter = "sidekick" })
+		config.setup({ adapter = { name = "sidekick" } })
 		-- Ensure sidekick.cli is absent
 		package.loaded["sidekick.cli"] = nil
 		package.preload["sidekick.cli"] = nil
@@ -153,7 +157,7 @@ describe("briefing.send()", function()
 
 	it("sends via sidekick adapter with the trimmed buffer text", function()
 		set_buffer_text({ "  hello world  " })
-		config.setup({ adapter = "sidekick" })
+		config.setup({ adapter = { name = "sidekick" } })
 
 		local received = nil
 		package.preload["sidekick.cli"] = function()
@@ -174,7 +178,7 @@ describe("briefing.send()", function()
 
 	it("sends via sidekick adapter with multi-line text intact", function()
 		set_buffer_text({ "line one", "line two" })
-		config.setup({ adapter = "sidekick" })
+		config.setup({ adapter = { name = "sidekick" } })
 
 		local received = nil
 		package.preload["sidekick.cli"] = function()
@@ -196,8 +200,10 @@ describe("briefing.send()", function()
 		set_buffer_text({ "send this" })
 		-- Use callback adapter with a no-op callback to avoid clipboard side effects
 		config.setup({
-			adapter = "callback",
-			adapter_config = { callback = function() end },
+			adapter = {
+				name = "callback",
+				callback = function() end,
+			},
 		})
 
 		briefing.send()

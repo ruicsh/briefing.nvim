@@ -11,6 +11,10 @@ describe("briefing.config", function()
 	-- -----------------------------------------------------------------------
 
 	describe("defaults", function()
+		it("sets debug to false", function()
+			assert.is_false(config.options.debug)
+		end)
+
 		it("sets window.width to 100", function()
 			assert.equals(100, config.options.window.width)
 		end)
