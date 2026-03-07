@@ -203,11 +203,16 @@ local defaults = {
     wo = {}, ---@type vim.wo  window-local option overrides
     bo = {}, ---@type vim.bo  buffer-local option overrides
     -- width / height: absolute integers, or 0–1 as a fraction of the editor size
-    width = 80,
-    height = 20,
+    width = 100,
+    height = 0.6,
     border = "rounded",
     title = " Briefing ",
     title_pos = "center", ---@type "left"|"center"|"right"
+    ---@type briefing.Footer
+    footer = {
+      enabled = true,                  -- show keymap hint footer on the border
+      pos = "center",                  ---@type "left"|"center"|"right"
+    },
   },
 
   --- Named keymaps for the briefing window.
@@ -217,6 +222,7 @@ local defaults = {
   ---@type table<string, briefing.Keymap|false>
   keymaps = {
     send  = { "<c-s>", "send",  mode = "ni", desc = "send prompt to agent" },
+    reset = { "<c-x>", "reset", mode = "ni", desc = "clear the buffer" },
     close = { "q",     "close", mode = "n",  desc = "close the window" },
   },
 }
