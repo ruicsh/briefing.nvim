@@ -1,0 +1,20 @@
+name: Lint
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  lint:
+    name: luacheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install luacheck
+        run: sudo apt-get install -y luarocks && sudo luarocks install luacheck
+
+      - name: Run luacheck
+        run: make lint
