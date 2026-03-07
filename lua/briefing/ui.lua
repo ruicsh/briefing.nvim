@@ -172,7 +172,7 @@ function M.open()
 	local visual_modes = { v = true, V = true, ["\22"] = true }
 	if visual_modes[mode] then
 		-- Yank to register z for resolve
-		vim.cmd("normal! \"zY")
+		vim.cmd('normal! "zY')
 
 		-- Capture positions for close restoration
 		local anchor = vim.fn.getpos("v")
