@@ -1,11 +1,6 @@
 local M = {}
 
----@param msg string
-local function dlog(msg)
-	if require("briefing.config").options.debug then
-		vim.cmd("echom " .. vim.inspect("Briefing [debug]: " .. msg))
-	end
-end
+local dlog = require("briefing.log").dlog
 
 --- Translate a single briefing token to its sidekick-ready string.
 --- Returns nil when the token should be self-resolved inline instead.
