@@ -80,10 +80,7 @@ local function set_keymaps(bufnr)
 			local handler = type(action) == "function" and action or actions[action]
 
 			if not handler then
-				vim.notify(
-					("Briefing: unknown keymap action %q for key %q"):format(tostring(action), name),
-					vim.log.levels.WARN
-				)
+				vim.notify(("Briefing: unknown keymap action %q for key %q"):format(tostring(action), name), vim.log.levels.WARN)
 				goto continue
 			end
 

@@ -2,7 +2,7 @@ NVIM_BIN    ?= nvim
 PLENARY     ?= $(HOME)/.local/share/nvim/site/pack/test/start/plenary.nvim
 PLENARY_URL  = https://github.com/nvim-lua/plenary.nvim
 
-.PHONY: test deps
+.PHONY: test deps fmt check-fmt
 
 ## Install test dependencies (plenary.nvim) if not already present.
 deps:
@@ -13,6 +13,14 @@ deps:
 	else \
 		echo "plenary.nvim already present at $(PLENARY)"; \
 	fi
+
+## Format all Lua source files in-place using StyLua.
+fmt:
+	stylua lua/ plugin/ spec/
+
+## Check formatting without modifying files (non-zero exit if changes needed).
+check-fmt:
+	stylua --check lua/ plugin/ spec/
 
 ## Run the full test suite inside a headless Neovim.
 test: deps
