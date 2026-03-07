@@ -64,8 +64,10 @@ function M.send(raw_text, tokens, prev_winid)
 		return
 	end
 
+	local cfg = require("briefing.config").options
+	local sidekick_cfg = cfg.adapter_config and cfg.adapter_config.sidekick or {}
 	local translated = translate(raw_text, tokens, prev_winid)
-	sidekick_cli.send({ msg = translated })
+	sidekick_cli.send({ msg = translated, name = sidekick_cfg.tool })
 end
 
 return M

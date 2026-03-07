@@ -195,16 +195,25 @@ The plugin ships with safe defaults and exposes everything through
 ---@class briefing.Config
 local defaults = {
   --- Adapter used when sending the prompt.
-  --- Built-in values: "callback" (default), "sidekick".
+  --- Built-in values: "sidekick" (default), "callback".
   --- May also be a table implementing the adapter interface.
   ---@type string|table
-  adapter = "callback",
+  adapter = "sidekick",
 
   ---@type briefing.AdapterConfig
   adapter_config = {
     --- Called by the callback adapter with the fully resolved prompt text.
     --- Default (nil): copies the prompt to the system clipboard.
     callback = nil,
+
+    --- Options for the sidekick adapter.
+    sidekick = {
+      --- sidekick CLI tool to target when sending the prompt.
+      --- Set to a tool name (e.g. "opencode", "claude") to always send to that tool.
+      --- Default (nil): sends to whichever sidekick session is currently active.
+      ---@type string?
+      tool = nil,
+    },
   },
 
   ---@type briefing.Window.Opts
@@ -249,7 +258,23 @@ local defaults = {
 
 Adapters translate your resolved prompt into the format expected by each agent.
 
-### `callback` (default)
+### `sidekick` (default)
+
+Sends the prompt through [sidekick.nvim](https://github.com/folke/sidekick.nvim). Tokens are translated to sidekick's native context variables where possible, so sidekick handles their resolution. Tokens without a sidekick equivalent (like `#diff`) are resolved by briefing.nvim directly.
+
+```lua
+require("briefing").setup({
+  adapter = "sidekick",
+  -- Optionally pin a specific tool so you never have to pick one:
+  adapter_config = {
+    sidekick = { tool = "opencode" }, -- or "claude", "gemini", etc.
+  },
+})
+```
+
+Requires `folke/sidekick.nvim` to be installed and configured.
+
+### `callback`
 
 Resolves all tokens into plain text and passes the result to a callback function. The default callback copies the prompt to the system clipboard.
 
@@ -263,19 +288,6 @@ require("briefing").setup({
     end,
   },
 })
-```
-
-### `sidekick`
-
-Sends the prompt through [sidekick.nvim](https://github.com/folke/sidekick.nvim). Tokens are translated to sidekick's native context variables where possible, so sidekick handles their resolution. Tokens without a sidekick equivalent (like `#diff`) are resolved by briefing.nvim directly.
-
-```lua
-require("briefing").setup({
-  adapter = "sidekick",
-})
-```
-
-Requires `folke/sidekick.nvim` to be installed and configured.
 
 ## Lua API
 

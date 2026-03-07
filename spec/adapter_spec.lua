@@ -52,12 +52,12 @@ describe("briefing.adapter.get()", function()
 		assert.equals(custom, adapter_mod.get())
 	end)
 
-	it("defaults to callback adapter when no adapter is configured", function()
+	it("defaults to sidekick adapter when no adapter is configured", function()
 		config.setup()
 		package.loaded["briefing.adapter"] = nil
 		local adapter_mod = require("briefing.adapter")
-		local callback_mod = require("briefing.adapter.callback")
-		assert.equals(callback_mod, adapter_mod.get())
+		local sidekick_mod = require("briefing.adapter.sidekick")
+		assert.equals(sidekick_mod, adapter_mod.get())
 	end)
 end)
 
@@ -204,6 +204,7 @@ describe("briefing.adapter.sidekick", function()
 
 		assert.is_not_nil(received)
 		assert.equals("Review: {file} thanks", received.msg)
+		assert.is_nil(received.name)
 	end)
 
 	it("translates #buffer:all to {file}", function()
@@ -221,6 +222,7 @@ describe("briefing.adapter.sidekick", function()
 
 		assert.is_not_nil(received)
 		assert.equals("see {file}", received.msg)
+		assert.is_nil(received.name)
 	end)
 
 	it("translates #buffer:diff to {file} and emits a WARN", function()
@@ -260,6 +262,26 @@ describe("briefing.adapter.sidekick", function()
 
 		sidekick_adapter.send("plain prompt", no_tokens, nil)
 		assert.equals("plain prompt", received.msg)
+		assert.is_nil(received.name)
+	end)
+
+	it("forwards adapter_config.sidekick.tool as name to sidekick_cli.send()", function()
+		local received = nil
+		package.preload["sidekick.cli"] = function()
+			return {
+				send = function(opts)
+					received = opts
+				end,
+			}
+		end
+
+		config.setup({ adapter_config = { sidekick = { tool = "opencode" } } })
+		package.loaded["briefing.adapter.sidekick"] = nil
+		sidekick_adapter = require("briefing.adapter.sidekick")
+
+		sidekick_adapter.send("plain prompt", no_tokens, nil)
+		assert.equals("plain prompt", received.msg)
+		assert.equals("opencode", received.name)
 	end)
 
 	it("notifies ERROR when sidekick.nvim is not installed", function()

@@ -27,20 +27,34 @@ local M = {}
 --- Adapter configuration for the briefing send action.
 ---@class briefing.AdapterConfig
 ---@field callback? fun(resolved_text: string)  called by the callback adapter with the fully resolved prompt
+---@field sidekick? briefing.SidekickAdapterConfig
+
+--- Configuration for the sidekick adapter.
+---@class briefing.SidekickAdapterConfig
+---@field tool? string  sidekick CLI tool name to target (e.g. "opencode"). nil uses the active session.
 
 ---@class briefing.Config
 local defaults = {
 	--- Adapter used when sending the prompt.
-	--- Built-in values: "callback" (default), "sidekick".
+	--- Built-in values: "callback", "sidekick" (default).
 	--- May also be a table implementing the adapter interface.
 	---@type string|table
-	adapter = "callback",
+	adapter = "sidekick",
 
 	---@type briefing.AdapterConfig
 	adapter_config = {
 		--- Called by the callback adapter with the fully resolved prompt text.
 		--- Default (nil): copies the prompt to the system clipboard.
 		callback = nil,
+
+		--- Options for the sidekick adapter.
+		sidekick = {
+			--- sidekick CLI tool to target when sending the prompt.
+			--- Set to a tool name (e.g. "opencode", "claude") to always send to that tool.
+			--- Default (nil): sends to whichever sidekick session is currently active.
+			---@type string?
+			tool = nil,
+		},
 	},
 
 	---@type briefing.Window.Opts
