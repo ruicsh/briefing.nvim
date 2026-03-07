@@ -20,25 +20,25 @@ local M = {}
 
 ---@class briefing.Config
 local defaults = {
-  ---@type briefing.Window.Opts
-  window = {
-    config = nil,
-    wo = {},
-    bo = {},
-    width = 80,
-    height = 20,
-    border = "rounded",
-    title = " Briefing ",
-    title_pos = "center",
-  },
+	---@type briefing.Window.Opts
+	window = {
+		config = nil,
+		wo = {},
+		bo = {},
+		width = 80,
+		height = 20,
+		border = "rounded",
+		title = " Briefing ",
+		title_pos = "center",
+	},
 
-  --- Named keymaps for the briefing window.
-  --- Set any entry to `false` to disable that binding.
-  ---@type table<string, briefing.Keymap|false>
-  keymaps = {
-    send  = { "<c-s>", "send",  mode = "ni", desc = "send prompt to agent" },
-    close = { "q",     "close", mode = "n",  desc = "close the window" },
-  },
+	--- Named keymaps for the briefing window.
+	--- Set any entry to `false` to disable that binding.
+	---@type table<string, briefing.Keymap|false>
+	keymaps = {
+		send = { "<c-s>", "send", mode = "ni", desc = "send prompt to agent" },
+		close = { "q", "close", mode = "n", desc = "close the window" },
+	},
 }
 
 ---@type briefing.Config
@@ -46,7 +46,7 @@ M.options = {}
 
 ---@param opts? briefing.Config
 function M.setup(opts)
-  M.options = vim.tbl_deep_extend("force", defaults, opts or {})
+	M.options = vim.tbl_deep_extend("force", defaults, opts or {})
 end
 
 -- Initialize with defaults
