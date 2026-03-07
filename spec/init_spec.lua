@@ -29,10 +29,48 @@ local function reset()
 	package.preload["sidekick.cli.session"] = nil
 	package.loaded["sidekick.cli.state"] = nil
 	package.preload["sidekick.cli.state"] = nil
+	package.loaded["sidekick.text"] = nil
+	package.preload["sidekick.text"] = nil
 	package.loaded["briefing.adapter"] = nil
 	package.loaded["briefing.adapter.callback"] = nil
 	package.loaded["briefing.adapter.sidekick"] = nil
 	package.loaded["briefing.context"] = nil
+end
+
+-- Minimal sidekick.text stub used by tests that exercise the sidekick adapter.
+local function stub_sidekick_text()
+	package.preload["sidekick.text"] = function()
+		return {
+			to_text = function(data)
+				if type(data) == "string" then
+					if data == "" then
+						return {}
+					end
+					local lines = vim.split(data, "\n", { plain = true })
+					return vim.tbl_map(function(s)
+						return { { s } }
+					end, lines)
+				end
+				return data
+			end,
+		}
+	end
+end
+
+-- Extract a plain string from a sidekick.Text[] (reverses to_text).
+local function text_to_string(text)
+	if not text then
+		return nil
+	end
+	local lines = {}
+	for _, line in ipairs(text) do
+		local parts = {}
+		for _, chunk in ipairs(line) do
+			parts[#parts + 1] = chunk[1]
+		end
+		lines[#lines + 1] = table.concat(parts)
+	end
+	return table.concat(lines, "\n")
 end
 
 -- ---------------------------------------------------------------------------
@@ -158,6 +196,7 @@ describe("briefing.send()", function()
 	it("sends via sidekick adapter with the trimmed buffer text", function()
 		set_buffer_text({ "  hello world  " })
 		config.setup({ adapter = { name = "sidekick" } })
+		stub_sidekick_text()
 
 		local received = nil
 		package.preload["sidekick.cli"] = function()
@@ -173,12 +212,13 @@ describe("briefing.send()", function()
 		briefing.send()
 
 		assert.is_not_nil(received)
-		assert.equals("hello world", received.msg)
+		assert.equals("hello world", text_to_string(received.text))
 	end)
 
 	it("sends via sidekick adapter with multi-line text intact", function()
 		set_buffer_text({ "line one", "line two" })
 		config.setup({ adapter = { name = "sidekick" } })
+		stub_sidekick_text()
 
 		local received = nil
 		package.preload["sidekick.cli"] = function()
@@ -193,7 +233,7 @@ describe("briefing.send()", function()
 		briefing.send()
 
 		assert.is_not_nil(received)
-		assert.equals("line one\nline two", received.msg)
+		assert.equals("line one\nline two", text_to_string(received.text))
 	end)
 
 	it("closes the window after a successful send", function()

@@ -166,16 +166,21 @@ function M.open()
 	local mode = vim.api.nvim_get_mode().mode
 	vim.t.briefing_prev_mode = mode
 
-	-- When called from visual mode, capture the live selection endpoints before
-	-- opening the float causes Neovim to exit visual mode.  Use getpos("v") for
-	-- the anchor (the end that doesn't move with the cursor) and getpos(".") for
-	-- the cursor end; '< / '> are only updated after leaving visual mode.
+	-- When called from visual mode, capture the selection content immediately.
+	-- Use yank to capture (more reliable than getpos) and also capture positions
+	-- for restoration when closing.
 	local visual_modes = { v = true, V = true, ["\22"] = true }
 	if visual_modes[mode] then
-		local anchor = vim.fn.getpos("v") -- { bufnum, lnum, col, off }
-		local cursor = vim.fn.getpos(".") -- { bufnum, lnum, col, off }
-		vim.t.briefing_prev_vis_anchor = anchor[2] .. "," .. anchor[3]
-		vim.t.briefing_prev_vis_cursor = cursor[2] .. "," .. cursor[3]
+		-- Yank to register z for resolve
+		vim.cmd("normal! \"zY")
+
+		-- Capture positions for close restoration
+		local anchor = vim.fn.getpos("v")
+		local cursor = vim.fn.getpos(".")
+		if anchor[2] > 0 and cursor[2] > 0 then
+			vim.t.briefing_prev_vis_anchor = anchor[2] .. "," .. anchor[3]
+			vim.t.briefing_prev_vis_cursor = cursor[2] .. "," .. cursor[3]
+		end
 	end
 
 	-- Build win_config and allow the user callback to mutate it
@@ -209,7 +214,13 @@ function M.open()
 
 	set_keymaps(bufnr)
 
-	vim.cmd("startinsert")
+	-- If opened from visual mode, auto-insert #selection token with spacing
+	if visual_modes[mode] then
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#selection", "", "" })
+		vim.api.nvim_win_set_cursor(winid, { 3, 0 })
+	else
+		vim.cmd("startinsert")
+	end
 end
 
 --- Close the floating window, keeping the buffer alive.
@@ -235,15 +246,24 @@ function M.close()
 	if prev_winid and vim.api.nvim_win_is_valid(prev_winid) then
 		vim.api.nvim_set_current_win(prev_winid)
 		local visual_modes = { v = true, V = true, ["\22"] = true }
+		local buf = vim.api.nvim_win_get_buf(prev_winid)
+		-- Only restore visual selection if we have valid anchor/cursor AND the marks
+		-- resolve to valid positions in the current buffer. This guards against stale
+		-- marks from a previous session or when #selection resolved to empty.
 		if visual_modes[prev_mode] and prev_vis_anchor and prev_vis_cursor then
-			-- Restore the visual selection: place '< and '> then re-enter visual mode.
 			local al, ac = prev_vis_anchor:match("^(%d+),(%d+)$")
 			local cl, cc = prev_vis_cursor:match("^(%d+),(%d+)$")
-			local buf = vim.api.nvim_win_get_buf(prev_winid)
-			-- nvim_buf_set_mark uses 1-based lines, 0-based cols; getpos returns 1-based cols
-			vim.api.nvim_buf_set_mark(buf, "<", tonumber(al), tonumber(ac) - 1, {})
-			vim.api.nvim_buf_set_mark(buf, ">", tonumber(cl), tonumber(cc) - 1, {})
-			vim.cmd("normal! `<" .. prev_mode .. "`>")
+			if al and cl then
+				local buf_len = vim.api.nvim_buf_line_count(buf)
+				-- Validate line numbers are within buffer bounds
+				if tonumber(al) >= 1 and tonumber(al) <= buf_len and tonumber(cl) >= 1 and tonumber(cl) <= buf_len then
+					-- Restore the visual selection: place '< and '> then re-enter visual mode.
+					-- nvim_buf_set_mark uses 1-based lines, 0-based cols; getpos returns 1-based cols
+					vim.api.nvim_buf_set_mark(buf, "<", tonumber(al), tonumber(ac) - 1, {})
+					vim.api.nvim_buf_set_mark(buf, ">", tonumber(cl), tonumber(cc) - 1, {})
+					vim.cmd("normal! `<" .. prev_mode .. "`>")
+				end
+			end
 		elseif prev_mode == "i" or prev_mode == "ic" or prev_mode == "ix" then
 			vim.cmd("startinsert")
 		else

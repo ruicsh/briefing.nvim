@@ -14,14 +14,54 @@ local function reset()
 	package.loaded["sidekick.cli"] = nil
 	package.loaded["sidekick.cli.session"] = nil
 	package.loaded["sidekick.cli.state"] = nil
+	package.loaded["sidekick.text"] = nil
 	package.preload["sidekick.cli"] = nil
 	package.preload["sidekick.cli.session"] = nil
 	package.preload["sidekick.cli.state"] = nil
+	package.preload["sidekick.text"] = nil
 	package.preload["briefing.context"] = nil
 end
 
 -- Minimal fake tokens list for tests that don't care about token content
 local no_tokens = {}
+
+-- Minimal sidekick.text stub: to_text(str) → sidekick.Text[] (one chunk per line)
+local function stub_sidekick_text()
+	package.preload["sidekick.text"] = function()
+		return {
+			to_text = function(data)
+				if type(data) == "string" then
+					if data == "" then
+						return {}
+					end
+					local lines = vim.split(data, "\n", { plain = true })
+					return vim.tbl_map(function(s)
+						return { { s } }
+					end, lines)
+				end
+				return data
+			end,
+		}
+	end
+end
+
+-- Extract the plain string from a sidekick.Text[] (for assertions).
+-- Each element is a line (sidekick.Text = sidekick.Chunk[]).
+-- Joins lines with "\n" and concatenates all chunk strings per line.
+local function text_to_string(text)
+	if not text then
+		return nil
+	end
+	local lines = {}
+	for _, line in ipairs(text) do
+		local parts = {}
+		for _, chunk in ipairs(line) do
+			parts[#parts + 1] = chunk[1]
+		end
+		lines[#lines + 1] = table.concat(parts)
+	end
+	return table.concat(lines, "\n")
+end
 
 -- ---------------------------------------------------------------------------
 -- adapter.get() — factory dispatch
@@ -190,6 +230,7 @@ describe("briefing.adapter.sidekick", function()
 
 	before_each(function()
 		reset()
+		stub_sidekick_text()
 		sidekick_adapter = require("briefing.adapter.sidekick")
 	end)
 	after_each(reset)
@@ -215,7 +256,7 @@ describe("briefing.adapter.sidekick", function()
 		sidekick_adapter.send("Review: #buffer thanks", tokens, nil)
 
 		assert.is_not_nil(received)
-		assert.equals("Review: INLINED thanks", received.msg)
+		assert.equals("Review: INLINED thanks", text_to_string(received.text))
 		assert.is_nil(received.name)
 	end)
 
@@ -253,7 +294,7 @@ describe("briefing.adapter.sidekick", function()
 		vim.api.nvim_buf_delete(bufnr, { force = true })
 
 		assert.is_not_nil(received)
-		assert.equals("Review: @" .. expected_path .. " thanks", received.msg)
+		assert.equals("Review: @" .. expected_path .. " thanks", text_to_string(received.text))
 		assert.equals("opencode", received.name)
 	end)
 
@@ -290,7 +331,7 @@ describe("briefing.adapter.sidekick", function()
 		vim.api.nvim_buf_delete(bufnr, { force = true })
 
 		assert.is_not_nil(received)
-		assert.equals("see @" .. expected_path, received.msg)
+		assert.equals("see @" .. expected_path, text_to_string(received.text))
 	end)
 
 	it("self-resolves #buffer:diff inline even when tool is opencode", function()
@@ -317,7 +358,7 @@ describe("briefing.adapter.sidekick", function()
 		sidekick_adapter.send("see #buffer:diff", tokens, nil)
 
 		assert.is_not_nil(received)
-		assert.equals("see DIFF_CONTENT", received.msg)
+		assert.equals("see DIFF_CONTENT", text_to_string(received.text))
 	end)
 
 	it("passes prompt unchanged when there are no tokens", function()
@@ -331,7 +372,7 @@ describe("briefing.adapter.sidekick", function()
 		end
 
 		sidekick_adapter.send("plain prompt", no_tokens, nil)
-		assert.equals("plain prompt", received.msg)
+		assert.equals("plain prompt", text_to_string(received.text))
 		assert.is_nil(received.name)
 	end)
 
@@ -350,7 +391,7 @@ describe("briefing.adapter.sidekick", function()
 		sidekick_adapter = require("briefing.adapter.sidekick")
 
 		sidekick_adapter.send("plain prompt", no_tokens, nil)
-		assert.equals("plain prompt", received.msg)
+		assert.equals("plain prompt", text_to_string(received.text))
 		assert.equals("opencode", received.name)
 		assert.is_true(received.submit)
 	end)
@@ -370,7 +411,7 @@ describe("briefing.adapter.sidekick", function()
 		sidekick_adapter = require("briefing.adapter.sidekick")
 
 		sidekick_adapter.send("plain prompt", no_tokens, nil)
-		assert.equals("plain prompt", received.msg)
+		assert.equals("plain prompt", text_to_string(received.text))
 		assert.is_false(received.submit)
 	end)
 
@@ -424,7 +465,7 @@ describe("briefing.adapter.sidekick", function()
 		assert.is_false(with_opts.focus)
 	end)
 
-	it("State.with() callback calls sidekick_cli.send() with the translated prompt", function()
+	it("State.with() callback calls sidekick_cli.send() with the translated prompt as text", function()
 		local sent_opts = nil
 		package.preload["sidekick.cli.state"] = function()
 			return {
@@ -451,7 +492,7 @@ describe("briefing.adapter.sidekick", function()
 		sidekick_adapter.send("my prompt", no_tokens, nil)
 
 		assert.is_not_nil(sent_opts)
-		assert.equals("my prompt", sent_opts.msg)
+		assert.equals("my prompt", text_to_string(sent_opts.text))
 		assert.equals("opencode", sent_opts.name)
 	end)
 

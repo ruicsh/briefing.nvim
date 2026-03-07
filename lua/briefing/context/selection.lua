@@ -1,12 +1,20 @@
 local M = {}
 
 --- Resolve the `#selection` context variable.
---- Reads the visual selection coordinates stored by ui.open() when the briefing
---- window was opened from visual mode.  Falls back gracefully when no selection
---- is available.
+--- First checks if content was already captured at open() time. If not,
+--- falls back to reading from the source buffer using stored positions.
 ---@param prev_winid? integer  the window that was active before briefing opened
 ---@return string
 function M.resolve(prev_winid)
+	-- Read directly from register z (yanked at open time from visual selection)
+	local content = vim.fn.getreg("z")
+	if content and content ~= "" then
+		content = content:gsub("\n$", "") -- strip trailing newline from yank
+		local lang = vim.bo[vim.api.nvim_win_get_buf(vim.api.nvim_get_current_win())].filetype or ""
+		return ("```%s\n%s\n```"):format(lang, content)
+	end
+
+	-- Fall back to reading from positions (for backwards compatibility)
 	local anchor_str = vim.t.briefing_prev_vis_anchor
 	local cursor_str = vim.t.briefing_prev_vis_cursor
 
@@ -49,10 +57,17 @@ function M.resolve(prev_winid)
 		return ""
 	end
 
-	-- Trim columns: last line up to end_col, first line from start_col
-	-- getpos() columns are 1-based; string.sub is also 1-based
-	lines[#lines] = lines[#lines]:sub(1, end_col)
-	lines[1] = lines[1]:sub(start_col)
+	-- Trim columns: last line up to end_col, first line from start_col.
+	-- getpos() columns are 1-based; string.sub is also 1-based.
+	-- Single-line selections must be trimmed in one step: trimming lines[#lines]
+	-- first mutates lines[1] (same slot), so a subsequent sub(start_col) would
+	-- operate on the already-truncated string and clip the wrong characters.
+	if #lines == 1 then
+		lines[1] = lines[1]:sub(start_col, end_col)
+	else
+		lines[#lines] = lines[#lines]:sub(1, end_col)
+		lines[1] = lines[1]:sub(start_col)
+	end
 
 	local lang = vim.bo[bufnr].filetype or ""
 	local content = table.concat(lines, "\n")

@@ -36,22 +36,50 @@ local function translate(raw_text, tokens, prev_winid)
 	local tool = cfg.adapter and cfg.adapter.sidekick and cfg.adapter.sidekick.tool or nil
 	local result = raw_text
 
+	dlog("translate: token_count=" .. #tokens .. " raw_text(80)=" .. raw_text:sub(1, 80):gsub("\n", "\\n"))
+
 	for _, token in ipairs(tokens) do
+		dlog("token: raw=" .. token.raw .. " name=" .. token.name .. " suboption=" .. tostring(token.suboption))
 		local escaped = token.raw:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
 		local translated = translate_token(token, prev_winid, tool)
 
+		dlog("translate_token result=" .. tostring(translated))
+
 		if translated then
 			result = result:gsub(escaped, translated, 1)
+			dlog("result after translate gsub (80)=" .. result:sub(1, 80):gsub("\n", "\\n"))
 		else
 			-- Self-resolve tokens the tool cannot handle natively
 			local resolved = context.resolve(token, prev_winid)
+			dlog(
+				"resolved type="
+					.. type(resolved)
+					.. " len="
+					.. (resolved ~= nil and tostring(#resolved) or "nil")
+					.. " val(80)="
+					.. (resolved ~= nil and resolved:sub(1, 80):gsub("\n", "\\n") or "nil")
+			)
 			if resolved ~= nil then
 				result = result:gsub(escaped, resolved, 1)
+				dlog("result after resolve gsub (80)=" .. result:sub(1, 80):gsub("\n", "\\n"))
 			end
 		end
 	end
 
+	dlog("translate final (80)=" .. result:sub(1, 80):gsub("\n", "\\n"))
 	return result
+end
+
+--- Convert a plain string to sidekick.Text[] so sidekick skips its template
+--- renderer and sends the content verbatim (no `{token}` expansion).
+---@param str string
+---@return table
+local function to_text(str)
+	local ok, Text = pcall(require, "sidekick.text")
+	if not ok then
+		return {}
+	end
+	return Text.to_text(str)
 end
 
 --- Send the prompt through sidekick.nvim.
@@ -68,6 +96,10 @@ function M.send(raw_text, tokens, prev_winid)
 	local cfg = require("briefing.config").options
 	local sidekick_cfg = cfg.adapter and cfg.adapter.sidekick or {}
 	local translated = translate(raw_text, tokens, prev_winid)
+	-- Pass as pre-rendered text so sidekick does not re-parse the content for
+	-- {token} template expressions (which would misfire on Lua table literals
+	-- or any other `{...}` present in resolved context blocks).
+	local text = to_text(translated)
 	local tool = sidekick_cfg.tool
 
 	local ok_session, Session = pcall(require, "sidekick.cli.session")
@@ -103,7 +135,7 @@ function M.send(raw_text, tokens, prev_winid)
 			-- callback so the prompt reaches the right terminal.
 			dlog("taking State.with() chaining path")
 			State.with(function()
-				sidekick_cli.send({ msg = translated, name = tool, submit = sidekick_cfg.submit })
+				sidekick_cli.send({ text = text, name = tool, submit = sidekick_cfg.submit })
 			end, { attach = true, filter = { name = tool, started = true, external = false }, show = true, focus = false })
 			return
 		end
@@ -116,13 +148,13 @@ function M.send(raw_text, tokens, prev_winid)
 			dlog("pre-starting new local terminal session")
 			local session = Session.new({ tool = tool })
 			Session.attach(session)
-			sidekick_cli.send({ msg = translated, name = tool, submit = sidekick_cfg.submit })
+			sidekick_cli.send({ text = text, name = tool, submit = sidekick_cfg.submit })
 			return
 		end
 		dlog("falling through to sidekick_cli.send()")
 	end
 
-	sidekick_cli.send({ msg = translated, name = tool, submit = sidekick_cfg.submit })
+	sidekick_cli.send({ text = text, name = tool, submit = sidekick_cfg.submit })
 end
 
 return M
