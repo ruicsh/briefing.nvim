@@ -44,21 +44,50 @@ After installing briefing.nvim, register the autocomplete source in your complet
 
 #### blink.cmp
 
-Add the briefing source to your blink.cmp config:
+Add the briefing source to your blink.cmp config using the setup helper:
+
+```lua
+{
+  "saghen/blink.cmp",
+  dependencies = {
+    "ruicsh/briefing.nvim",
+  },
+  opts = {
+    sources = {
+      providers = {
+        briefing = require("briefing.integrations.blink").setup({
+          -- Optional: adjust completion priority (lower = appears later)
+          score_offset = -10,
+        }),
+      },
+    },
+  },
+}
+```
+
+Or configure manually:
 
 ```lua
 require("blink.cmp").setup({
   sources = {
     providers = {
       briefing = {
-        module = "blink-cmp-briefing",
-        name = "Briefing Context",
+        module = "briefing.integrations.blink",
+        name = "Briefing",
+        enabled = function()
+          return vim.bo.filetype == "briefing"
+        end,
       },
     },
     default = { "lsp", "path", "buffer", "briefing" },
   },
 })
 ```
+
+The blink.cmp source provides:
+- Variable completion after `#` — shows all context variables with descriptions
+- Suboption completion after `#variable:` — e.g., `#buffer:` shows `diff` and `all`
+- File path completion after `#file:` — requires at least 1 character, then shows matching files
 
 #### nvim-cmp
 
