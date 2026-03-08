@@ -219,25 +219,6 @@ function M.open()
 
 	set_keymaps(bufnr)
 
-	-- Override <Tab> to handle picker patterns before blink.cmp
-	vim.keymap.set("i", "<Tab>", function()
-		local line = vim.api.nvim_get_current_line()
-		local col = vim.api.nvim_win_get_cursor(0)[2]
-		local before = line:sub(1, col)
-
-		-- Check if we're after a picker pattern
-		if before:match("#buffer:$") or before:match("#buffer:diff$") or before:match("#file:$") then
-			-- Defer picker to avoid expr mapping restrictions
-			vim.schedule(function()
-				require("briefing.picker").on_tab()
-			end)
-			return
-		end
-
-		-- Otherwise, let blink handle it (or insert tab if no blink mapping)
-		vim.api.nvim_feedkeys(vim.keycode("<Tab>"), "n", true)
-	end, { buffer = bufnr, desc = "Briefing picker or tab" })
-
 	-- If opened from visual mode, auto-insert #selection token with spacing
 	if visual_modes[mode] then
 		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#selection", "", "" })

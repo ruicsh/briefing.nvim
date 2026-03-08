@@ -20,7 +20,10 @@ local VARIABLES = {
 		label = "#buffer",
 		description = "Inline current buffer content (use :diff or :all after)",
 		insert_text = "#buffer",
-		suboptions = nil, -- Use <Tab> after #buffer: to open picker
+		suboptions = {
+			{ label = "all", description = "Full buffer content (default)", insert_text = "#buffer:all" },
+			{ label = "diff", description = "Git diff of buffer", insert_text = "#buffer:diff" },
+		},
 	},
 	selection = {
 		label = "#selection",

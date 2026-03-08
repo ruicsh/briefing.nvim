@@ -150,22 +150,11 @@ function M.open_buffer_picker(opts)
 		return
 	end
 
-	-- Check if there are any buffers (excluding the briefing buffer)
-	local buffers = vim.api.nvim_list_bufs()
-	local has_buffers = false
-	for _, b in ipairs(buffers) do
-		if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].buflisted and b ~= bufnr then
-			has_buffers = true
-			break
-		end
-	end
+	dlog("open_buffer_picker: calling snacks.picker.buffers()")
 
-	if not has_buffers then
-		vim.notify("Briefing: No open buffers to pick from", vim.log.levels.WARN)
-		return
-	end
-
-	snacks.picker.buffers({
+	local picker_ok, err = pcall(snacks.picker.buffers, {
+		-- Show all buffers including unlisted ones (hidden buffers may not be buflisted)
+		hidden = true,
 		confirm = function(picker, item)
 			dlog("picker.confirm: START")
 			picker:close()
@@ -226,6 +215,13 @@ function M.open_buffer_picker(opts)
 			end)
 		end,
 	})
+
+	if not picker_ok then
+		dlog("open_buffer_picker: ERROR calling snacks.picker.buffers: " .. tostring(err))
+		vim.notify("Briefing: Failed to open buffer picker: " .. tostring(err), vim.log.levels.ERROR)
+		return
+	end
+
 	dlog("open_buffer_picker: END")
 end
 
