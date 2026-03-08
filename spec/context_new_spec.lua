@@ -559,3 +559,101 @@ describe("briefing.context.quickfix.resolve()", function()
 		assert.is_true(result:find("W:") ~= nil)
 	end)
 end)
+
+-- ---------------------------------------------------------------------------
+-- context/init.lua — preprocess_at_refs()
+-- ---------------------------------------------------------------------------
+
+describe("briefing.context.preprocess_at_refs()", function()
+	local context
+
+	before_each(function()
+		reset()
+		context = require("briefing.context")
+	end)
+	after_each(reset)
+
+	it("converts @path/file.txt to #file:path/file.txt", function()
+		local text = "Check @path/file.txt for details"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Check #file:path/file.txt for details", result)
+	end)
+
+	it("converts @./relative/path to #file:./relative/path", function()
+		local text = "See @./local/config.lua"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("See #file:./local/config.lua", result)
+	end)
+
+	it("converts @../parent/file to #file:../parent/file", function()
+		local text = "Load @../shared/utils.lua"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Load #file:../shared/utils.lua", result)
+	end)
+
+	it("converts @file.txt to #file:file.txt", function()
+		local text = "Edit @file.txt"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Edit #file:file.txt", result)
+	end)
+
+	it("does not convert @mention (no / or .)", function()
+		local text = "Hey @user check this"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Hey @user check this", result)
+	end)
+
+	it("does not convert @ within a word", function()
+		local text = "email@example.com"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("email@example.com", result)
+	end)
+
+	it("handles multiple @ references", function()
+		local text = "Compare @a.lua and @b.lua"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Compare #file:a.lua and #file:b.lua", result)
+	end)
+
+	it("handles @ at start of line", function()
+		local text = "@src/main.ts is the entry"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("#file:src/main.ts is the entry", result)
+	end)
+
+	it("handles @ at end of line", function()
+		local text = "See @README.md"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("See #file:README.md", result)
+	end)
+
+	it("does not convert @ followed by non-path characters", function()
+		local text = "Error @ (check logs)"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Error @ (check logs)", result)
+	end)
+
+	it("converts @path-with-dashes/file", function()
+		local text = "Open @my-folder/file.txt"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Open #file:my-folder/file.txt", result)
+	end)
+
+	it("converts @path_with_underscores/file", function()
+		local text = "Load @my_folder/file.lua"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Load #file:my_folder/file.lua", result)
+	end)
+
+	it("handles empty string", function()
+		local text = ""
+		local result = context.preprocess_at_refs(text)
+		assert.equals("", result)
+	end)
+
+	it("handles string with no @ references", function()
+		local text = "Just plain text"
+		local result = context.preprocess_at_refs(text)
+		assert.equals("Just plain text", result)
+	end)
+end)

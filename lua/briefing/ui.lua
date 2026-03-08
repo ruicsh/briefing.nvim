@@ -109,6 +109,9 @@ local actions = {
 			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
 		end
 	end,
+	pick_buffer = function()
+		require("briefing.picker").on_tab()
+	end,
 }
 
 --- Set buffer-local keymaps from the named keymaps config.

@@ -33,7 +33,11 @@ function M.send()
 	-- Capture prev_winid before close() clears it
 	local prev_winid = ui.get_prev_winid()
 
-	local tokens = require("briefing.context").parse(text)
+	-- Preprocess @path references to #file:path format
+	local context = require("briefing.context")
+	text = context.preprocess_at_refs(text)
+
+	local tokens = context.parse(text)
 	require("briefing.adapter").send(text, tokens, prev_winid)
 	M.close()
 end

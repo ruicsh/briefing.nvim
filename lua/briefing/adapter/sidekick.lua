@@ -21,6 +21,14 @@ local function translate_token(token, prev_winid, tool)
 			end
 		end
 	end
+
+	-- Translate #file:path to @{path} for opencode
+	if token.name == "file" and token.suboption then
+		if tool == "opencode" then
+			return "@" .. token.suboption
+		end
+	end
+
 	return nil
 end
 

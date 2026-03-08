@@ -7,6 +7,70 @@ local M = {}
 ---@field suboption? string  optional suboption, e.g. "diff", "all"
 ---@field raw string       the original token text, e.g. "#buffer:diff"
 
+--- Convert @path references to #file:path format.
+--- Matches @ followed by a file path (must contain / or . to distinguish from mentions).
+---@param text string
+---@return string
+function M.preprocess_at_refs(text)
+	-- Match @path where path contains at least one / or . (file paths, not mentions)
+	-- Must be preceded by whitespace or start of line
+	-- Must be followed by whitespace or end of line
+	local result = text
+
+	-- Pattern explanation:
+	-- ([%s\n]) = capture group 1: whitespace or newline before @
+	-- @ = literal @
+	-- ([a-zA-Z0-9_./-]+) = capture group 2: the path (letters, numbers, underscores, dots, slashes, hyphens)
+	-- (?=.) = lookahead to ensure there's at least one . or / in the path
+	-- [%s\n]? = optional whitespace or newline after
+	local pos = 1
+	while pos <= #result do
+		-- Find next @
+		local at_pos = result:find("@", pos, true)
+		if not at_pos then
+			break
+		end
+
+		-- Check character before @: must be start-of-string, newline, or space
+		local before = at_pos > 1 and result:sub(at_pos - 1, at_pos - 1) or nil
+		if before ~= nil and before ~= " " and before ~= "\t" and before ~= "\n" then
+			pos = at_pos + 1
+			goto continue_pre
+		end
+
+		-- Match the path after @
+		local after = result:sub(at_pos + 1)
+		local path = after:match("^([a-zA-Z0-9_./-]+)")
+		if not path then
+			pos = at_pos + 1
+			goto continue_pre
+		end
+
+		-- Check if it looks like a file path (has / or .)
+		if not path:find("[./]") then
+			pos = at_pos + 1
+			goto continue_pre
+		end
+
+		-- Check character after path: must be end-of-string, newline, or space
+		local after_path_pos = at_pos + 1 + #path
+		local after_path = result:sub(after_path_pos, after_path_pos)
+		if after_path ~= "" and after_path ~= " " and after_path ~= "\t" and after_path ~= "\n" then
+			pos = at_pos + 1
+			goto continue_pre
+		end
+
+		-- Replace @path with #file:path
+		result = result:sub(1, at_pos - 1) .. "#file:" .. path .. result:sub(after_path_pos)
+
+		pos = at_pos + 7 + #path -- Skip past #file: + path
+
+		::continue_pre::
+	end
+
+	return result
+end
+
 --- Parse all `#name` and `#name:suboption` tokens from a text string.
 --- Tokens must be preceded by whitespace or start-of-line, and followed by
 --- whitespace or end-of-line (so e.g. "foo#bar" is not a token).
