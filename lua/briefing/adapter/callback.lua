@@ -33,6 +33,12 @@ end
 function M.send(raw_text, tokens, prev_winid)
 	local resolved = resolve_text(raw_text, tokens, prev_winid)
 
+	-- Check if resolved text is empty or contains only whitespace
+	if resolved:match("^%s*$") then
+		vim.notify("Briefing: prompt is empty after resolving tokens", vim.log.levels.WARN)
+		return
+	end
+
 	local cfg = require("briefing.config").options
 	local cb = cfg.adapter and cfg.adapter.callback
 

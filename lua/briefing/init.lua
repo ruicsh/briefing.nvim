@@ -21,13 +21,14 @@ function M.send()
 	local ui = require("briefing.ui")
 	local text = ui.get_text()
 
-	-- Strip leading/trailing whitespace
-	text = text:match("^%s*(.-)%s*$")
-
-	if text == "" then
-		vim.notify("Briefing: nothing to send", vim.log.levels.WARN)
+	-- Check if text is empty or contains only whitespace
+	if text:match("^%s*$") then
+		vim.notify("Briefing: prompt is empty", vim.log.levels.WARN)
 		return
 	end
+
+	-- Trim leading and trailing whitespace (including newlines)
+	text = text:gsub("^%s+", ""):gsub("%s+$", "")
 
 	-- Capture prev_winid before close() clears it
 	local prev_winid = ui.get_prev_winid()

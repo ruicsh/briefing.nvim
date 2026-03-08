@@ -173,6 +173,24 @@ describe("briefing.send()", function()
 		assert.equals(vim.log.levels.WARN, notified_level)
 	end)
 
+	it("notifies WARN when the buffer contains only empty lines", function()
+		set_buffer_text({ "", "", "" })
+
+		local notified_level = nil
+		local notified_message = nil
+		local orig = vim.notify
+		vim.notify = function(msg, level)
+			notified_message = msg
+			notified_level = level
+		end
+
+		briefing.send()
+
+		vim.notify = orig
+		assert.equals(vim.log.levels.WARN, notified_level)
+		assert.equals("Briefing: prompt is empty", notified_message)
+	end)
+
 	it("notifies ERROR when using the sidekick adapter and sidekick.nvim is not installed", function()
 		set_buffer_text({ "hello" })
 		-- Configure the sidekick adapter

@@ -4,9 +4,8 @@ local dlog = require("briefing.log").dlog
 
 --- Resolve the `#selection` context variable.
 --- Reads from register z which was yanked at open() time from visual selection.
----@param _prev_winid? integer  the window that was active before briefing opened (unused, kept for API compatibility)
 ---@return string
-function M.resolve(_prev_winid)
+function M.resolve()
 	-- Read directly from register z (yanked at open time from visual selection)
 	local content = vim.fn.getreg("z")
 	dlog("selection resolve: reg z len=" .. (content and #content or 0))

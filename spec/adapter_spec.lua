@@ -219,6 +219,73 @@ describe("briefing.adapter.callback", function()
 
 		assert.equals("see #unknown token", received)
 	end)
+
+	it("notifies WARN and does not call callback when resolved text is empty", function()
+		package.loaded["briefing.context"] = {
+			resolve = function()
+				return ""
+			end,
+		}
+
+		local callback_called = false
+		local notified_level = nil
+		local notified_message = nil
+		local orig_notify = vim.notify
+		vim.notify = function(msg, level)
+			notified_message = msg
+			notified_level = level
+		end
+
+		config.setup({
+			adapter = {
+				name = "callback",
+				callback = function()
+					callback_called = true
+				end,
+			},
+		})
+
+		local tokens = { { type = "context", name = "diff", suboption = nil, raw = "#diff" } }
+		callback_adapter.send("#diff", tokens, nil)
+
+		vim.notify = orig_notify
+		assert.equals(vim.log.levels.WARN, notified_level)
+		assert.equals("Briefing: prompt is empty after resolving tokens", notified_message)
+		assert.is_false(callback_called)
+	end)
+
+	it("notifies WARN and does not copy to clipboard when resolved text is only whitespace", function()
+		package.loaded["briefing.context"] = {
+			resolve = function()
+				return "   \n\t  "
+			end,
+		}
+
+		local setreg_called = false
+		local orig_setreg = vim.fn.setreg
+		vim.fn.setreg = function(reg, val)
+			if reg == "+" then
+				setreg_called = true
+			end
+			return orig_setreg(reg, val)
+		end
+
+		local notified_level = nil
+		local orig_notify = vim.notify
+		vim.notify = function(_, level)
+			notified_level = level
+		end
+
+		config.setup({ adapter = { name = "callback" } })
+
+		local tokens = { { type = "context", name = "diff", suboption = nil, raw = "#diff" } }
+		callback_adapter.send("#diff", tokens, nil)
+
+		vim.notify = orig_notify
+		vim.fn.setreg = orig_setreg
+		assert.equals(vim.log.levels.WARN, notified_level)
+		assert.is_false(setreg_called)
+	end)
 end)
 
 -- ---------------------------------------------------------------------------
@@ -643,6 +710,117 @@ describe("briefing.adapter.sidekick", function()
 
 		assert.is_false(with_called)
 		assert.is_true(send_called)
+	end)
+
+	it("notifies WARN and does not send when translated text is empty", function()
+		package.loaded["briefing.context"] = {
+			resolve = function()
+				return ""
+			end,
+		}
+
+		local send_called = false
+		package.preload["sidekick.cli"] = function()
+			return {
+				send = function()
+					send_called = true
+				end,
+			}
+		end
+
+		local notified_level = nil
+		local notified_message = nil
+		local orig_notify = vim.notify
+		vim.notify = function(msg, level)
+			notified_message = msg
+			notified_level = level
+		end
+
+		config.setup({ adapter = { sidekick = { tool = "opencode" } } })
+		package.loaded["briefing.adapter.sidekick"] = nil
+		sidekick_adapter = require("briefing.adapter.sidekick")
+
+		local tokens = { { type = "context", name = "diff", suboption = nil, raw = "#diff" } }
+		sidekick_adapter.send("#diff", tokens, nil)
+
+		vim.notify = orig_notify
+		assert.equals(vim.log.levels.WARN, notified_level)
+		assert.equals("Briefing: prompt is empty after resolving tokens", notified_message)
+		assert.is_false(send_called)
+	end)
+
+	it("notifies WARN and does not send when translated text is only whitespace", function()
+		package.loaded["briefing.context"] = {
+			resolve = function()
+				return "   \n\t  "
+			end,
+		}
+
+		local send_called = false
+		package.preload["sidekick.cli"] = function()
+			return {
+				send = function()
+					send_called = true
+				end,
+			}
+		end
+
+		local notified_level = nil
+		local orig_notify = vim.notify
+		vim.notify = function(_, level)
+			notified_level = level
+		end
+
+		config.setup({ adapter = { sidekick = { tool = "opencode" } } })
+		package.loaded["briefing.adapter.sidekick"] = nil
+		sidekick_adapter = require("briefing.adapter.sidekick")
+
+		local tokens = { { type = "context", name = "diff", suboption = nil, raw = "#diff" } }
+		sidekick_adapter.send("#diff", tokens, nil)
+
+		vim.notify = orig_notify
+		assert.equals(vim.log.levels.WARN, notified_level)
+		assert.is_false(send_called)
+	end)
+
+	it("does not pre-start a session when translated text is empty", function()
+		package.loaded["briefing.context"] = {
+			resolve = function()
+				return ""
+			end,
+		}
+
+		local new_called = false
+		package.preload["sidekick.cli.session"] = function()
+			return {
+				new = function()
+					new_called = true
+					return { id = "test" }
+				end,
+				attach = function() end,
+			}
+		end
+		package.preload["sidekick.cli.state"] = function()
+			return {
+				get = function()
+					return {}
+				end,
+				with = function() end,
+			}
+		end
+
+		local orig_notify = vim.notify
+		vim.notify = function() end
+
+		config.setup({ adapter = { sidekick = { tool = "opencode" } } })
+		package.loaded["briefing.adapter.sidekick"] = nil
+		sidekick_adapter = require("briefing.adapter.sidekick")
+
+		local tokens = { { type = "context", name = "diff", suboption = nil, raw = "#diff" } }
+		sidekick_adapter.send("#diff", tokens, nil)
+
+		vim.notify = orig_notify
+		assert.is_false(new_called)
 	end)
 end)
 

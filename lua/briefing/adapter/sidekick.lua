@@ -96,6 +96,13 @@ function M.send(raw_text, tokens, prev_winid)
 	local cfg = require("briefing.config").options
 	local sidekick_cfg = cfg.adapter and cfg.adapter.sidekick or {}
 	local translated = translate(raw_text, tokens, prev_winid)
+
+	-- Check if translated text is empty or contains only whitespace
+	if translated:match("^%s*$") then
+		vim.notify("Briefing: prompt is empty after resolving tokens", vim.log.levels.WARN)
+		return
+	end
+
 	-- Pass as pre-rendered text so sidekick does not re-parse the content for
 	-- {token} template expressions (which would misfire on Lua table literals
 	-- or any other `{...}` present in resolved context blocks).
