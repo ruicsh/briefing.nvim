@@ -209,6 +209,22 @@ function M.open_buffer_picker(opts)
 			end
 			dlog("picker.confirm: END")
 		end,
+		on_close = function(_picker)
+			dlog("picker.on_close: restoring focus to briefing window")
+			-- Defer focus restoration to override snacks' automatic main window focus
+			vim.schedule(function()
+				if vim.api.nvim_win_is_valid(winid) then
+					vim.api.nvim_set_current_win(winid)
+					-- Position cursor right after the #buffer: pattern and enter insert mode
+					-- start_col is 1-indexed, nvim_win_set_cursor col is 0-indexed
+					-- Token is: # + pattern + : = 1 + #pattern + 1 = #pattern + 2 chars
+					-- So 0-indexed position after = (start_col - 1) + (#pattern + 2) = start_col + #pattern + 1
+					local col_after = start_col and (start_col + #pattern + 1) or 1
+					vim.api.nvim_win_set_cursor(winid, { line_nr, col_after })
+					vim.cmd("startinsert")
+				end
+			end)
+		end,
 	})
 	dlog("open_buffer_picker: END")
 end
