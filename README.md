@@ -85,6 +85,7 @@ require("blink.cmp").setup({
 ```
 
 The blink.cmp source provides:
+
 - Variable completion after `#` — shows all context variables with descriptions
 - Suboption completion after `#variable:` — e.g., `#buffer:` shows `diff` and `all`
 - File path completion after `#file:` — requires at least 1 character, then shows matching files
@@ -114,19 +115,20 @@ The autocomplete source only activates in briefing buffers (filetype `briefing`)
 
 ### Keymaps
 
-| Key     | Mode          | Action                           |
-| ------- | ------------- | -------------------------------- |
-| `<C-s>` | insert/normal | Send prompt to agent             |
-| `q`     | normal        | Close window (content persists)  |
-| `<C-x>` | insert/normal | Reset buffer (clear all content) |
-| `<C-t>` | insert/normal | Open template picker             |
+| Key     | Mode          | Action                              |
+| ------- | ------------- | ----------------------------------- |
+| `<C-s>` | insert/normal | Send prompt to agent                |
+| `q`     | normal        | Close window (content persists)     |
+| `<C-x>` | insert/normal | Reset buffer (clear all content)    |
+| `<C-t>` | insert/normal | Open template picker                |
+| `<C-]>` | insert        | Open buffer picker after `#buffer:` |
 
 ### Workflow
 
 1. Open the briefing window with `:Briefing`
 2. Write your prompt in natural language
 3. Add context with `#` variables (e.g. `#buffer`, `#diagnostics`) — type `#` and use autocomplete
-4. Reference files with `@` or `#file:<tab>` to open a picker
+4. Reference files with `@` or `#file:<C-]>` to open a picker
 5. Press `<C-s>` to resolve all tokens and send the prompt to your agent
 
 ### Visual mode
@@ -149,7 +151,7 @@ Context variables insert editor state into your prompt. Type `#` in the briefing
 | `#selection`    | Visual selection captured when the window was opened — resolves to empty if no selection was active | —                                                                                  |
 | `#diagnostics`  | LSP diagnostics                                                                                     | `#diagnostics:buffer` (current buffer, default), `#diagnostics:all` (workspace)    |
 | `#diff`         | Git diff output                                                                                     | bare `#diff` defaults to unstaged; `#diff:staged`, `#diff:<sha>` (specific commit) |
-| `#file:<path>`  | A specific file's content                                                                           | `<tab>` opens a file picker; multi-select inserts multiple `#file:` tokens         |
+| `#file:<path>`  | A specific file's content                                                                           | `<C-]>` opens a file picker; multi-select inserts multiple `#file:` tokens         |
 | `#files:<path>` | All files in a directory                                                                            | `#files:grep` (pattern search), `#files:glob` (glob match)                         |
 | `#quickfix`     | Quickfix list contents                                                                              | —                                                                                  |
 
@@ -165,14 +167,15 @@ Resources are explicit references to external content. Type `@` then `<tab>` to 
 
 ## Picker
 
-When `<tab>` is pressed after a token that accepts input, an interactive picker opens:
+When `<C-]>` is pressed after a token that accepts input, an interactive picker opens:
 
 | Trigger            | Picker           | Result                                       |
 | ------------------ | ---------------- | -------------------------------------------- |
-| `#file:<tab>`      | File picker      | `#file:src/foo.lua` (multi-select supported) |
-| `#files:<tab>`     | Directory picker | `#files:src/`                                |
-| `#files:grep<tab>` | Grep picker      | Grep results                                 |
-| `@<tab>`           | File picker      | `@src/foo.lua`                               |
+| `#file:<C-]>`      | File picker      | `#file:src/foo.lua` (multi-select supported) |
+| `#files:<C-]>`     | Directory picker | `#files:src/`                                |
+| `#files:grep<C-]>` | Grep picker      | Grep results                                 |
+| `@<C-]>`           | File picker      | `@src/foo.lua`                               |
+| `#buffer:<C-]>`    | Buffer picker    | Select from open buffers                     |
 
 Multi-select in the file picker produces separate tokens: `#file:a.lua #file:b.lua`.
 
@@ -285,9 +288,10 @@ local defaults = {
   --- mode is a string of mode characters: "n" = normal, "i" = insert, "ni" = both.
   ---@type table<string, briefing.Keymap|false>
   keymaps = {
-    send  = { "<c-s>", "send",  mode = "ni", desc = "send prompt to agent" },
-    reset = { "<c-x>", "reset", mode = "ni", desc = "clear the buffer" },
-    close = { "q",     "close", mode = "n",  desc = "close the window" },
+    send        = { "<c-s>", "send",        mode = "ni", desc = "send prompt to agent" },
+    reset       = { "<c-x>", "reset",       mode = "ni", desc = "clear the buffer" },
+    close       = { "q",     "close",       mode = "n",  desc = "close the window" },
+    pick_buffer = { "<c-]>", "pick_buffer", mode = "i",  desc = "pick buffer after #buffer:" },
   },
 }
 ```

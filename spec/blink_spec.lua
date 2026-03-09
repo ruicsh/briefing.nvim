@@ -148,7 +148,7 @@ describe("blink.cmp integration", function()
 	end)
 
 	describe("get_completions() - suboptions", function()
-		it("defers to picker for buffer: (returns empty)", function()
+		it("returns suboptions for buffer: (all, diff)", function()
 			local source = blink.new()
 			local ctx = {
 				line = "#buffer:",
@@ -160,9 +160,16 @@ describe("blink.cmp integration", function()
 				result = res
 			end)
 
-			-- #buffer: should return empty so <Tab> falls through to picker
+			-- #buffer: now returns all and diff suboptions
 			assert.is_not_nil(result)
-			assert.are.equal(0, #result.items)
+			assert.are.equal(2, #result.items)
+
+			local labels = {}
+			for _, item in ipairs(result.items) do
+				table.insert(labels, item.label)
+			end
+			assert.is_true(vim.tbl_contains(labels, "all"))
+			assert.is_true(vim.tbl_contains(labels, "diff"))
 		end)
 
 		it("returns suboptions for diagnostics:", function()
