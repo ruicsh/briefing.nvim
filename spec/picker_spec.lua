@@ -55,13 +55,12 @@ describe("briefing.picker", function()
 		end)
 	end)
 
-	describe("replace_token behavior", function()
+	describe("open_picker() with buffer type", function()
 		local captured_lines
 
 		before_each(function()
 			captured_lines = nil
 
-			-- Mock vim.api functions
 			vim.api.nvim_buf_get_lines = function(_, start_row, _, _)
 				if captured_lines then
 					return { captured_lines[start_row + 1] }
@@ -89,14 +88,12 @@ describe("briefing.picker", function()
 				-- no-op for testing
 			end
 
-			-- Mock vim.fn.getcwd for relative path tests
 			vim.fn.getcwd = function()
 				return "/home/user/project"
 			end
 		end)
 
 		after_each(function()
-			-- Restore original functions
 			vim.api.nvim_buf_get_lines = nil
 			vim.api.nvim_buf_set_lines = nil
 			vim.api.nvim_win_is_valid = nil
@@ -107,16 +104,13 @@ describe("briefing.picker", function()
 		end)
 
 		it("replaces #buffer: with #file:<relative_path>", function()
-			-- Set up initial line
 			local initial_line = "Check #buffer:"
 			captured_lines = { initial_line }
 
-			-- Mock the get_lines to return our test line
 			vim.api.nvim_buf_get_lines = function(_, _, _, _)
 				return { initial_line }
 			end
 
-			-- Call open_buffer_picker with mocked snacks
 			local confirm_callback = nil
 			package.loaded["snacks"] = {
 				picker = {
@@ -126,13 +120,13 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_buffer_picker({
+			picker.open_picker({
+				type = "buffer",
 				pattern = "buffer",
 				start_col = 7,
 				line_nr = 1,
 			})
 
-			-- Simulate selecting a file
 			local mock_picker = {
 				close = function() end,
 				selected = function()
@@ -143,7 +137,6 @@ describe("briefing.picker", function()
 
 			confirm_callback(mock_picker, mock_item)
 
-			-- Verify replacement
 			assert.equals("Check #file:lua/test.lua ", captured_lines[1])
 		end)
 
@@ -164,7 +157,8 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_buffer_picker({
+			picker.open_picker({
+				type = "buffer",
 				pattern = "buffer:diff",
 				start_col = 7,
 				line_nr = 1,
@@ -200,13 +194,13 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_buffer_picker({
+			picker.open_picker({
+				type = "buffer",
 				pattern = "buffer",
 				start_col = 7,
 				line_nr = 1,
 			})
 
-			-- Simulate multi-select
 			local mock_picker = {
 				close = function() end,
 				selected = function()
@@ -240,7 +234,8 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_buffer_picker({
+			picker.open_picker({
+				type = "buffer",
 				pattern = "buffer",
 				start_col = 7,
 				line_nr = 1,
@@ -252,7 +247,6 @@ describe("briefing.picker", function()
 					return {}
 				end,
 			}
-			-- File outside cwd
 			local mock_item = { file = "/other/path/file.lua" }
 
 			confirm_callback(mock_picker, mock_item)
@@ -277,7 +271,8 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_buffer_picker({
+			picker.open_picker({
+				type = "buffer",
 				pattern = "buffer",
 				start_col = 7,
 				line_nr = 1,
@@ -289,12 +284,10 @@ describe("briefing.picker", function()
 					return {}
 				end,
 			}
-			-- Empty file path
 			local mock_item = { file = "" }
 
 			confirm_callback(mock_picker, mock_item)
 
-			-- Should still replace with #file: and trailing space
 			assert.equals("Check #file: ", captured_lines[1])
 		end)
 
@@ -320,7 +313,8 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_buffer_picker({
+			picker.open_picker({
+				type = "buffer",
 				pattern = "buffer",
 				start_col = 7,
 				line_nr = 1,
@@ -333,125 +327,13 @@ describe("briefing.picker", function()
 				end,
 			}
 
-			-- Nil item - should not modify buffer
 			confirm_callback(mock_picker, nil)
 
-			-- Buffer should not be modified
 			assert.is_false(set_lines_called)
 		end)
 	end)
 
-	describe("on_tab()", function()
-		local original_feedkeys
-
-		before_each(function()
-			original_feedkeys = vim.api.nvim_feedkeys
-			vim.api.nvim_get_current_buf = function()
-				return 999
-			end
-		end)
-
-		after_each(function()
-			vim.api.nvim_feedkeys = original_feedkeys
-			vim.api.nvim_get_current_buf = nil
-			vim.api.nvim_win_get_cursor = nil
-			vim.api.nvim_buf_get_lines = nil
-			vim.bo = vim.bo or {}
-		end)
-
-		it("falls back to normal tab in non-briefing buffers", function()
-			vim.bo = { [999] = { filetype = "lua" } }
-			local feedkeys_called = false
-			vim.api.nvim_feedkeys = function(keys, _, _)
-				feedkeys_called = true
-				assert.equals(vim.keycode("<Tab>"), keys)
-			end
-
-			picker.on_tab()
-			assert.is_true(feedkeys_called)
-		end)
-
-		it("opens picker when cursor is after #buffer:", function()
-			vim.bo = { [999] = { filetype = "briefing" } }
-			vim.api.nvim_win_get_cursor = function()
-				return { 1, 14 } -- line 1, after "Check #buffer:"
-			end
-			vim.api.nvim_buf_get_lines = function(_, _, _, _)
-				return { "Check #buffer:" }
-			end
-
-			local picker_called = false
-			package.loaded["snacks"] = {
-				picker = {
-					buffers = function(_)
-						picker_called = true
-					end,
-				},
-			}
-
-			picker.on_tab()
-			assert.is_true(picker_called)
-		end)
-
-		it("falls back to tab when cursor is not after pattern", function()
-			vim.bo = { [999] = { filetype = "briefing" } }
-			vim.api.nvim_win_get_cursor = function()
-				return { 1, 5 } -- cursor in middle of text
-			end
-			vim.api.nvim_buf_get_lines = function(_, _, _, _)
-				return { "Hello world" }
-			end
-
-			local feedkeys_called = false
-			vim.api.nvim_feedkeys = function(_, _, _)
-				feedkeys_called = true
-			end
-
-			picker.on_tab()
-			assert.is_true(feedkeys_called)
-		end)
-	end)
-
-	describe("get_file_pattern()", function()
-		it("matches #file: at end of line", function()
-			local line = "Check this #file:"
-			local col = #line
-			local matched, start_col = picker.get_file_pattern(line, col)
-			assert.is_true(matched)
-			assert.equals(12, start_col)
-		end)
-
-		it("returns false when cursor is not after pattern", function()
-			local line = "Check #file: all"
-			local col = #line
-			local matched = picker.get_file_pattern(line, col)
-			assert.is_false(matched)
-		end)
-
-		it("matches pattern when followed by partial text", function()
-			local line = "Check #file:fil"
-			local col = #line - 3
-			local matched, start_col = picker.get_file_pattern(line, col)
-			assert.is_true(matched)
-			assert.equals(7, start_col)
-		end)
-
-		it("returns false when pattern is in the middle of text", function()
-			local line = "Check #file: and more"
-			local col = #line
-			local matched = picker.get_file_pattern(line, col)
-			assert.is_false(matched)
-		end)
-
-		it("returns false when cursor is before pattern", function()
-			local line = "Check #file:"
-			local col = 5
-			local matched = picker.get_file_pattern(line, col)
-			assert.is_false(matched)
-		end)
-	end)
-
-	describe("replace_file_token behavior", function()
+	describe("open_picker() with file type", function()
 		local captured_lines
 
 		before_each(function()
@@ -522,7 +404,8 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_file_picker({
+			picker.open_picker({
+				type = "file",
 				start_col = 7,
 				line_nr = 1,
 			})
@@ -557,7 +440,8 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_file_picker({
+			picker.open_picker({
+				type = "file",
 				start_col = 7,
 				line_nr = 1,
 			})
@@ -595,7 +479,8 @@ describe("briefing.picker", function()
 				},
 			}
 
-			picker.open_file_picker({
+			picker.open_picker({
+				type = "file",
 				start_col = 7,
 				line_nr = 1,
 			})
@@ -614,7 +499,7 @@ describe("briefing.picker", function()
 		end)
 	end)
 
-	describe("on_tab() with #file:", function()
+	describe("on_tab()", function()
 		local original_feedkeys
 
 		before_each(function()
@@ -636,10 +521,44 @@ describe("briefing.picker", function()
 			vim.bo = vim.bo or {}
 		end)
 
+		it("falls back to normal tab in non-briefing buffers", function()
+			vim.bo = { [999] = { filetype = "lua" } }
+			local feedkeys_called = false
+			vim.api.nvim_feedkeys = function(keys, _, _)
+				feedkeys_called = true
+				assert.equals(vim.keycode("<Tab>"), keys)
+			end
+
+			picker.on_tab()
+			assert.is_true(feedkeys_called)
+		end)
+
+		it("opens buffer picker when cursor is after #buffer:", function()
+			vim.bo = { [999] = { filetype = "briefing" } }
+			vim.api.nvim_win_get_cursor = function()
+				return { 1, 14 }
+			end
+			vim.api.nvim_buf_get_lines = function(_, _, _, _)
+				return { "Check #buffer:" }
+			end
+
+			local picker_called = false
+			package.loaded["snacks"] = {
+				picker = {
+					buffers = function(_)
+						picker_called = true
+					end,
+				},
+			}
+
+			picker.on_tab()
+			assert.is_true(picker_called)
+		end)
+
 		it("opens file picker when cursor is after #file:", function()
 			vim.bo = { [999] = { filetype = "briefing" } }
 			vim.api.nvim_win_get_cursor = function()
-				return { 1, 12 } -- line 1, after "Check #file:"
+				return { 1, 12 }
 			end
 			vim.api.nvim_buf_get_lines = function(_, _, _, _)
 				return { "Check #file:" }
@@ -656,6 +575,24 @@ describe("briefing.picker", function()
 
 			picker.on_tab()
 			assert.is_true(picker_called)
+		end)
+
+		it("falls back to tab when cursor is not after pattern", function()
+			vim.bo = { [999] = { filetype = "briefing" } }
+			vim.api.nvim_win_get_cursor = function()
+				return { 1, 5 }
+			end
+			vim.api.nvim_buf_get_lines = function(_, _, _, _)
+				return { "Hello world" }
+			end
+
+			local feedkeys_called = false
+			vim.api.nvim_feedkeys = function(_, _, _)
+				feedkeys_called = true
+			end
+
+			picker.on_tab()
+			assert.is_true(feedkeys_called)
 		end)
 
 		it("prioritizes #file: over #buffer:", function()
@@ -683,6 +620,45 @@ describe("briefing.picker", function()
 			picker.on_tab()
 			assert.is_true(file_picker_called)
 			assert.is_false(buffer_picker_called)
+		end)
+	end)
+
+	describe("get_file_pattern()", function()
+		it("matches #file: at end of line", function()
+			local line = "Check this #file:"
+			local col = #line
+			local matched, start_col = picker.get_file_pattern(line, col)
+			assert.is_true(matched)
+			assert.equals(12, start_col)
+		end)
+
+		it("returns false when cursor is not after pattern", function()
+			local line = "Check #file: all"
+			local col = #line
+			local matched = picker.get_file_pattern(line, col)
+			assert.is_false(matched)
+		end)
+
+		it("matches pattern when followed by partial text", function()
+			local line = "Check #file:fil"
+			local col = #line - 3
+			local matched, start_col = picker.get_file_pattern(line, col)
+			assert.is_true(matched)
+			assert.equals(7, start_col)
+		end)
+
+		it("returns false when pattern is in the middle of text", function()
+			local line = "Check #file: and more"
+			local col = #line
+			local matched = picker.get_file_pattern(line, col)
+			assert.is_false(matched)
+		end)
+
+		it("returns false when cursor is before pattern", function()
+			local line = "Check #file:"
+			local col = 5
+			local matched = picker.get_file_pattern(line, col)
+			assert.is_false(matched)
 		end)
 	end)
 end)

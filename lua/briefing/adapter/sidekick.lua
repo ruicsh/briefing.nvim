@@ -2,11 +2,52 @@ local M = {}
 
 local dlog = require("briefing.log").dlog
 
+--- Convert a plain string to sidekick.Text[] so sidekick skips its template
+--- renderer and sends the content verbatim.
+---@param str string
+---@return table
+local function to_text(str)
+	local ok, Text = pcall(require, "sidekick.text")
+	if not ok then
+		return {}
+	end
+	return Text.to_text(str)
+end
+
+--- Check if a local (non-external) sidekick session is running.
+---@param tool string
+---@return boolean has_local_session
+local function has_local_session(tool)
+	local ok_state, State = pcall(require, "sidekick.cli.state")
+	if not ok_state then
+		return false
+	end
+
+	local running = State.get({ name = tool, started = true, external = false })
+	dlog("non-external started=" .. #running)
+	return #running >= 1
+end
+
+--- Pre-create and attach a local terminal session.
+---@param tool string
+---@return boolean success
+local function precreate_session(tool)
+	local ok_session, Session = pcall(require, "sidekick.cli.session")
+	if not ok_session then
+		return false
+	end
+
+	dlog("pre-starting new local terminal session")
+	local session = Session.new({ tool = tool })
+	Session.attach(session)
+	return true
+end
+
 --- Translate a single briefing token to its sidekick-ready string.
 --- Returns nil when the token should be self-resolved inline instead.
 ---@param token briefing.Token
----@param prev_winid? integer  window that was active before briefing opened
----@param tool? string         sidekick tool name, e.g. "opencode"
+---@param prev_winid? integer
+---@param tool? string
 ---@return string|nil
 local function translate_token(token, prev_winid, tool)
 	if token.name == "buffer" and not (token.suboption and token.suboption ~= "all") then
@@ -37,7 +78,7 @@ end
 ---@param raw_text string
 ---@param tokens briefing.Token[]
 ---@param prev_winid? integer
----@return string  translated prompt ready for sidekick_cli.send()
+---@return string
 local function translate(raw_text, tokens, prev_winid)
 	local context = require("briefing.context")
 	local cfg = require("briefing.config").options
@@ -47,47 +88,20 @@ local function translate(raw_text, tokens, prev_winid)
 	dlog("translate: token_count=" .. #tokens .. " raw_text(80)=" .. raw_text:sub(1, 80):gsub("\n", "\\n"))
 
 	for _, token in ipairs(tokens) do
-		dlog("token: raw=" .. token.raw .. " name=" .. token.name .. " suboption=" .. tostring(token.suboption))
 		local escaped = token.raw:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
 		local translated = translate_token(token, prev_winid, tool)
 
-		dlog("translate_token result=" .. tostring(translated))
-
 		if translated then
 			result = result:gsub(escaped, translated, 1)
-			dlog("result after translate gsub (80)=" .. result:sub(1, 80):gsub("\n", "\\n"))
 		else
-			-- Self-resolve tokens the tool cannot handle natively
 			local resolved = context.resolve(token, prev_winid)
-			dlog(
-				"resolved type="
-					.. type(resolved)
-					.. " len="
-					.. (resolved ~= nil and tostring(#resolved) or "nil")
-					.. " val(80)="
-					.. (resolved ~= nil and resolved:sub(1, 80):gsub("\n", "\\n") or "nil")
-			)
 			if resolved ~= nil then
 				result = result:gsub(escaped, resolved, 1)
-				dlog("result after resolve gsub (80)=" .. result:sub(1, 80):gsub("\n", "\\n"))
 			end
 		end
 	end
 
-	dlog("translate final (80)=" .. result:sub(1, 80):gsub("\n", "\\n"))
 	return result
-end
-
---- Convert a plain string to sidekick.Text[] so sidekick skips its template
---- renderer and sends the content verbatim (no `{token}` expansion).
----@param str string
----@return table
-local function to_text(str)
-	local ok, Text = pcall(require, "sidekick.text")
-	if not ok then
-		return {}
-	end
-	return Text.to_text(str)
 end
 
 --- Send the prompt through sidekick.nvim.
@@ -111,43 +125,15 @@ function M.send(raw_text, tokens, prev_winid)
 		return
 	end
 
-	-- Pass as pre-rendered text so sidekick does not re-parse the content for
-	-- {token} template expressions (which would misfire on Lua table literals
-	-- or any other `{...}` present in resolved context blocks).
 	local text = to_text(translated)
 	local tool = sidekick_cfg.tool
 
-	local ok_session, Session = pcall(require, "sidekick.cli.session")
-
-	-- When a tool is configured and the State module is available, we manage
-	-- session selection ourselves to avoid the picker UI that sidekick's
-	-- internal State.with() would trigger when multiple entries exist (e.g. an
-	-- external tmux session alongside an installed-but-not-started config entry).
 	local ok_state, State = pcall(require, "sidekick.cli.state")
-	dlog("ok_state=" .. tostring(ok_state) .. " ok_session=" .. tostring(ok_session) .. " tool=" .. tostring(tool))
+
 	if ok_state and tool then
-		local all_running = State.get({ name = tool, started = true })
-		local dbg_all = {}
-		for i, s in ipairs(all_running) do
-			dbg_all[i] = "s"
-				.. i
-				.. "(external="
-				.. tostring(s.external)
-				.. " backend="
-				.. tostring(s.session and s.session.backend or "nil")
-				.. " terminal="
-				.. tostring(s.terminal ~= nil)
-				.. ")"
-		end
-		dlog("all started=" .. #all_running .. " [" .. table.concat(dbg_all, ", ") .. "]")
-
-		local running = State.get({ name = tool, started = true, external = false })
-		dlog("non-external started=" .. #running)
-
-		if #running >= 1 then
-			-- A local (non-external) session is already running.  Use
-			-- State.with() to attach and show it, then send inside the
-			-- callback so the prompt reaches the right terminal.
+		if has_local_session(tool) then
+			-- A local session is already running. Use State.with() to attach
+			-- and show it, then send inside the callback.
 			dlog("taking State.with() chaining path")
 			State.with(function()
 				sidekick_cli.send({ text = text, name = tool, submit = sidekick_cfg.submit })
@@ -155,20 +141,14 @@ function M.send(raw_text, tokens, prev_winid)
 			return
 		end
 
-		-- No local session is running (there may be external-only sessions).
-		-- Pre-create and attach a local terminal session so that
-		-- sidekick_cli.send()'s internal State.with() finds exactly one
-		-- attached session and skips the picker UI entirely.
-		if ok_session then
-			dlog("pre-starting new local terminal session")
-			local session = Session.new({ tool = tool })
-			Session.attach(session)
+		-- No local session is running. Pre-create one and send directly.
+		if precreate_session(tool) then
 			sidekick_cli.send({ text = text, name = tool, submit = sidekick_cfg.submit })
 			return
 		end
-		dlog("falling through to sidekick_cli.send()")
 	end
 
+	-- Fallback: send directly
 	sidekick_cli.send({ text = text, name = tool, submit = sidekick_cfg.submit })
 end
 

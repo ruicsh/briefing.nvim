@@ -24,10 +24,9 @@ local function get_or_create_buf()
 	return bufnr
 end
 
---- Resolve a dimension value: 0–1 is treated as a fraction of `total`,
---- any other positive number is used as an absolute value.
+--- Resolve a dimension value: 0–1 is treated as a fraction of `total`.
 ---@param value number
----@param total number  editor width or height in cells
+---@param total number
 ---@return integer
 local function resolve_dim(value, total)
 	if value > 0 and value <= 1 then
@@ -37,8 +36,6 @@ local function resolve_dim(value, total)
 end
 
 --- Build the footer string from the active keymaps config.
---- Returns nil when footer is disabled via window.footer.enabled = false.
---- Keymaps are rendered in fixed display order: send, reset, close.
 ---@return string|nil
 local function build_footer()
 	local footer_cfg = config.options.window.footer or {}
@@ -64,7 +61,6 @@ local function build_footer()
 end
 
 --- Build the win_config table from the current window options.
---- Respects fractional width/height values.
 ---@return vim.api.keyset.win_config
 local function build_win_config()
 	local opts = config.options.window
@@ -116,7 +112,6 @@ local actions = {
 }
 
 --- Set buffer-local keymaps from the named keymaps config.
---- Entries set to `false` are skipped (disabled).
 ---@param bufnr integer
 local function set_keymaps(bufnr)
 	for name, km in pairs(config.options.keymaps) do
@@ -130,7 +125,6 @@ local function set_keymaps(bufnr)
 				goto continue
 			end
 
-			-- mode: a string like "ni" -> { "n", "i" }, or already a table like { "n", "i" }
 			local modes
 			if type(km.mode) == "table" then
 				modes = km.mode
@@ -154,6 +148,66 @@ local function set_keymaps(bufnr)
 	end
 end
 
+--- Visual mode state captured at open() time for restoration in close().
+---@class VisualState
+---@field anchor string|nil  "line,col" format
+---@field cursor string|nil  "line,col" format
+
+--- Capture visual selection state if currently in visual mode.
+--- Yanks the selection to register z for later resolution.
+---@return VisualState
+local function capture_visual_state()
+	local mode = vim.api.nvim_get_mode().mode
+	local visual_modes = { v = true, V = true, ["\22"] = true }
+
+	if not visual_modes[mode] then
+		return { anchor = nil, cursor = nil }
+	end
+
+	-- Yank to register z for resolve
+	vim.cmd('normal! "zY')
+
+	-- Capture positions for close restoration
+	local anchor = vim.fn.getpos("v")
+	local cursor = vim.fn.getpos(".")
+
+	local result = { anchor = nil, cursor = nil }
+	if anchor[2] > 0 and cursor[2] > 0 then
+		result.anchor = anchor[2] .. "," .. anchor[3]
+		result.cursor = cursor[2] .. "," .. cursor[3]
+	end
+
+	return result
+end
+
+--- Restore visual selection if prev_mode was visual mode.
+---@param winid integer  previous window to restore selection in
+---@param prev_mode string  mode string from when open() was called
+---@param vis_state VisualState  visual state from capture_visual_state()
+local function restore_visual_selection(winid, prev_mode, vis_state)
+	local visual_modes = { v = true, V = true, ["\22"] = true }
+	if not visual_modes[prev_mode] or not vis_state.anchor or not vis_state.cursor then
+		return
+	end
+
+	local buf = vim.api.nvim_win_get_buf(winid)
+	local al, ac = vis_state.anchor:match("^(%d+),(%d+)$")
+	local cl, cc = vis_state.cursor:match("^(%d+),(%d+)$")
+
+	if not al or not cl then
+		return
+	end
+
+	local buf_len = vim.api.nvim_buf_line_count(buf)
+	-- Validate line numbers are within buffer bounds
+	if tonumber(al) >= 1 and tonumber(al) <= buf_len and tonumber(cl) >= 1 and tonumber(cl) <= buf_len then
+		-- Restore the visual selection: place '< and '> then re-enter visual mode
+		vim.api.nvim_buf_set_mark(buf, "<", tonumber(al), tonumber(ac) - 1, {})
+		vim.api.nvim_buf_set_mark(buf, ">", tonumber(cl), tonumber(cc) - 1, {})
+		vim.cmd("normal! `<" .. prev_mode .. "`>")
+	end
+end
+
 --- Open (or focus) the briefing floating window.
 function M.open()
 	local bufnr = get_or_create_buf()
@@ -167,25 +221,12 @@ function M.open()
 
 	-- Remember the caller's window and mode so close() can restore them
 	vim.t.briefing_prev_winid = vim.api.nvim_get_current_win()
-	local mode = vim.api.nvim_get_mode().mode
-	vim.t.briefing_prev_mode = mode
+	vim.t.briefing_prev_mode = vim.api.nvim_get_mode().mode
 
-	-- When called from visual mode, capture the selection content immediately.
-	-- Use yank to capture (more reliable than getpos) and also capture positions
-	-- for restoration when closing.
-	local visual_modes = { v = true, V = true, ["\22"] = true }
-	if visual_modes[mode] then
-		-- Yank to register z for resolve
-		vim.cmd('normal! "zY')
-
-		-- Capture positions for close restoration
-		local anchor = vim.fn.getpos("v")
-		local cursor = vim.fn.getpos(".")
-		if anchor[2] > 0 and cursor[2] > 0 then
-			vim.t.briefing_prev_vis_anchor = anchor[2] .. "," .. anchor[3]
-			vim.t.briefing_prev_vis_cursor = cursor[2] .. "," .. cursor[3]
-		end
-	end
+	-- Capture visual selection state if in visual mode
+	local vis_state = capture_visual_state()
+	vim.t.briefing_prev_vis_anchor = vis_state.anchor
+	vim.t.briefing_prev_vis_cursor = vis_state.cursor
 
 	-- Build win_config and allow the user callback to mutate it
 	local wc = build_win_config()
@@ -220,7 +261,7 @@ function M.open()
 	set_keymaps(bufnr)
 
 	-- If opened from visual mode, auto-insert #selection token with spacing
-	if visual_modes[mode] then
+	if vis_state.anchor then
 		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#selection", "", "" })
 		vim.api.nvim_win_set_cursor(winid, { 3, 0 })
 	else
@@ -236,13 +277,14 @@ function M.close()
 	end
 	vim.t.briefing_winid = nil
 
-	-- Restore the previous window's mode. startinsert leaks into the caller's
-	-- window when the float is closed, so explicitly stop insert mode unless
-	-- the caller was already in insert mode when open() was called.
+	-- Restore the previous window's mode
 	local prev_winid = vim.t.briefing_prev_winid
 	local prev_mode = vim.t.briefing_prev_mode
-	local prev_vis_anchor = vim.t.briefing_prev_vis_anchor
-	local prev_vis_cursor = vim.t.briefing_prev_vis_cursor
+	local vis_state = {
+		anchor = vim.t.briefing_prev_vis_anchor,
+		cursor = vim.t.briefing_prev_vis_cursor,
+	}
+
 	vim.t.briefing_prev_winid = nil
 	vim.t.briefing_prev_mode = nil
 	vim.t.briefing_prev_vis_anchor = nil
@@ -250,26 +292,10 @@ function M.close()
 
 	if prev_winid and vim.api.nvim_win_is_valid(prev_winid) then
 		vim.api.nvim_set_current_win(prev_winid)
-		local visual_modes = { v = true, V = true, ["\22"] = true }
-		local buf = vim.api.nvim_win_get_buf(prev_winid)
-		-- Only restore visual selection if we have valid anchor/cursor AND the marks
-		-- resolve to valid positions in the current buffer. This guards against stale
-		-- marks from a previous session or when #selection resolved to empty.
-		if visual_modes[prev_mode] and prev_vis_anchor and prev_vis_cursor then
-			local al, ac = prev_vis_anchor:match("^(%d+),(%d+)$")
-			local cl, cc = prev_vis_cursor:match("^(%d+),(%d+)$")
-			if al and cl then
-				local buf_len = vim.api.nvim_buf_line_count(buf)
-				-- Validate line numbers are within buffer bounds
-				if tonumber(al) >= 1 and tonumber(al) <= buf_len and tonumber(cl) >= 1 and tonumber(cl) <= buf_len then
-					-- Restore the visual selection: place '< and '> then re-enter visual mode.
-					-- nvim_buf_set_mark uses 1-based lines, 0-based cols; getpos returns 1-based cols
-					vim.api.nvim_buf_set_mark(buf, "<", tonumber(al), tonumber(ac) - 1, {})
-					vim.api.nvim_buf_set_mark(buf, ">", tonumber(cl), tonumber(cc) - 1, {})
-					vim.cmd("normal! `<" .. prev_mode .. "`>")
-				end
-			end
-		elseif prev_mode == "i" or prev_mode == "ic" or prev_mode == "ix" then
+
+		restore_visual_selection(prev_winid, prev_mode, vis_state)
+
+		if prev_mode == "i" or prev_mode == "ic" or prev_mode == "ix" then
 			vim.cmd("startinsert")
 		else
 			vim.cmd("stopinsert")
@@ -278,7 +304,6 @@ function M.close()
 end
 
 --- Return the window handle that was active before the briefing window opened.
---- Returns nil when no briefing window has been opened in this tab yet.
 ---@return integer|nil
 function M.get_prev_winid()
 	return vim.t.briefing_prev_winid
