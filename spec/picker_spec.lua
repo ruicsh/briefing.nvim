@@ -411,4 +411,278 @@ describe("briefing.picker", function()
 			assert.is_true(feedkeys_called)
 		end)
 	end)
+
+	describe("get_file_pattern()", function()
+		it("matches #file: at end of line", function()
+			local line = "Check this #file:"
+			local col = #line
+			local matched, start_col = picker.get_file_pattern(line, col)
+			assert.is_true(matched)
+			assert.equals(12, start_col)
+		end)
+
+		it("returns false when cursor is not after pattern", function()
+			local line = "Check #file: all"
+			local col = #line
+			local matched = picker.get_file_pattern(line, col)
+			assert.is_false(matched)
+		end)
+
+		it("matches pattern when followed by partial text", function()
+			local line = "Check #file:fil"
+			local col = #line - 3
+			local matched, start_col = picker.get_file_pattern(line, col)
+			assert.is_true(matched)
+			assert.equals(7, start_col)
+		end)
+
+		it("returns false when pattern is in the middle of text", function()
+			local line = "Check #file: and more"
+			local col = #line
+			local matched = picker.get_file_pattern(line, col)
+			assert.is_false(matched)
+		end)
+
+		it("returns false when cursor is before pattern", function()
+			local line = "Check #file:"
+			local col = 5
+			local matched = picker.get_file_pattern(line, col)
+			assert.is_false(matched)
+		end)
+	end)
+
+	describe("replace_file_token behavior", function()
+		local captured_lines
+
+		before_each(function()
+			captured_lines = nil
+
+			vim.api.nvim_get_current_buf = function()
+				return 1
+			end
+
+			vim.api.nvim_get_current_win = function()
+				return 1
+			end
+
+			vim.api.nvim_buf_get_lines = function(_, start_row, _, _)
+				if captured_lines then
+					return { captured_lines[start_row + 1] }
+				end
+				return { "" }
+			end
+
+			vim.api.nvim_buf_set_lines = function(_, _, _, _, lines)
+				captured_lines = lines
+			end
+
+			vim.api.nvim_win_is_valid = function(_)
+				return true
+			end
+
+			vim.api.nvim_set_current_win = function(_) end
+
+			vim.schedule = function(fn)
+				fn()
+			end
+
+			vim.cmd = function(_) end
+
+			vim.fn.getcwd = function()
+				return "/home/user/project"
+			end
+		end)
+
+		after_each(function()
+			vim.api.nvim_get_current_buf = nil
+			vim.api.nvim_get_current_win = nil
+			vim.api.nvim_buf_get_lines = nil
+			vim.api.nvim_buf_set_lines = nil
+			vim.api.nvim_win_is_valid = nil
+			vim.api.nvim_set_current_win = nil
+			vim.schedule = nil
+			vim.cmd = nil
+			vim.fn.getcwd = nil
+		end)
+
+		it("appends #file:<path> after #file: token", function()
+			local initial_line = "Check #file:"
+			captured_lines = { initial_line }
+
+			vim.api.nvim_buf_get_lines = function(_, _, _, _)
+				return { initial_line }
+			end
+
+			local confirm_callback = nil
+			package.loaded["snacks"] = {
+				picker = {
+					files = function(opts)
+						confirm_callback = opts.confirm
+					end,
+				},
+			}
+
+			picker.open_file_picker({
+				start_col = 7,
+				line_nr = 1,
+			})
+
+			local mock_picker = {
+				close = function() end,
+				selected = function()
+					return {}
+				end,
+			}
+			local mock_item = { file = "/home/user/project/lua/test.lua" }
+
+			confirm_callback(mock_picker, mock_item)
+
+			assert.equals("Check #file:lua/test.lua ", captured_lines[1])
+		end)
+
+		it("handles multiple file selections", function()
+			local initial_line = "Check #file:"
+			captured_lines = { initial_line }
+
+			vim.api.nvim_buf_get_lines = function(_, _, _, _)
+				return { initial_line }
+			end
+
+			local confirm_callback = nil
+			package.loaded["snacks"] = {
+				picker = {
+					files = function(opts)
+						confirm_callback = opts.confirm
+					end,
+				},
+			}
+
+			picker.open_file_picker({
+				start_col = 7,
+				line_nr = 1,
+			})
+
+			local mock_picker = {
+				close = function() end,
+				selected = function()
+					return {
+						{ file = "/home/user/project/a.lua" },
+						{ file = "/home/user/project/b.lua" },
+					}
+				end,
+			}
+			local mock_item = { file = "/home/user/project/a.lua" }
+
+			confirm_callback(mock_picker, mock_item)
+
+			assert.equals("Check #file:a.lua #file:b.lua ", captured_lines[1])
+		end)
+
+		it("uses absolute path when file is outside cwd", function()
+			local initial_line = "Check #file:"
+			captured_lines = { initial_line }
+
+			vim.api.nvim_buf_get_lines = function(_, _, _, _)
+				return { initial_line }
+			end
+
+			local confirm_callback = nil
+			package.loaded["snacks"] = {
+				picker = {
+					files = function(opts)
+						confirm_callback = opts.confirm
+					end,
+				},
+			}
+
+			picker.open_file_picker({
+				start_col = 7,
+				line_nr = 1,
+			})
+
+			local mock_picker = {
+				close = function() end,
+				selected = function()
+					return {}
+				end,
+			}
+			local mock_item = { file = "/other/path/file.lua" }
+
+			confirm_callback(mock_picker, mock_item)
+
+			assert.equals("Check #file:/other/path/file.lua ", captured_lines[1])
+		end)
+	end)
+
+	describe("on_tab() with #file:", function()
+		local original_feedkeys
+
+		before_each(function()
+			original_feedkeys = vim.api.nvim_feedkeys
+			vim.api.nvim_get_current_buf = function()
+				return 999
+			end
+			vim.api.nvim_get_current_win = function()
+				return 1
+			end
+		end)
+
+		after_each(function()
+			vim.api.nvim_feedkeys = original_feedkeys
+			vim.api.nvim_get_current_buf = nil
+			vim.api.nvim_get_current_win = nil
+			vim.api.nvim_win_get_cursor = nil
+			vim.api.nvim_buf_get_lines = nil
+			vim.bo = vim.bo or {}
+		end)
+
+		it("opens file picker when cursor is after #file:", function()
+			vim.bo = { [999] = { filetype = "briefing" } }
+			vim.api.nvim_win_get_cursor = function()
+				return { 1, 12 } -- line 1, after "Check #file:"
+			end
+			vim.api.nvim_buf_get_lines = function(_, _, _, _)
+				return { "Check #file:" }
+			end
+
+			local picker_called = false
+			package.loaded["snacks"] = {
+				picker = {
+					files = function(_)
+						picker_called = true
+					end,
+				},
+			}
+
+			picker.on_tab()
+			assert.is_true(picker_called)
+		end)
+
+		it("prioritizes #file: over #buffer:", function()
+			vim.bo = { [999] = { filetype = "briefing" } }
+			vim.api.nvim_win_get_cursor = function()
+				return { 1, 12 }
+			end
+			vim.api.nvim_buf_get_lines = function(_, _, _, _)
+				return { "Check #file:" }
+			end
+
+			local file_picker_called = false
+			local buffer_picker_called = false
+			package.loaded["snacks"] = {
+				picker = {
+					files = function(_)
+						file_picker_called = true
+					end,
+					buffers = function(_)
+						buffer_picker_called = true
+					end,
+				},
+			}
+
+			picker.on_tab()
+			assert.is_true(file_picker_called)
+			assert.is_false(buffer_picker_called)
+		end)
+	end)
 end)

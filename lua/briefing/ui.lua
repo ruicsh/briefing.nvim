@@ -110,7 +110,7 @@ local actions = {
 			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
 		end
 	end,
-	pick_buffer = function()
+	picker = function()
 		require("briefing.picker").on_tab()
 	end,
 }

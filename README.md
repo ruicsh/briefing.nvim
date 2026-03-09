@@ -291,7 +291,7 @@ local defaults = {
     send        = { "<c-s>", "send",        mode = "ni", desc = "send prompt to agent" },
     reset       = { "<c-x>", "reset",       mode = "ni", desc = "clear the buffer" },
     close       = { "q",     "close",       mode = "n",  desc = "close the window" },
-    pick_buffer = { "<c-]>", "pick_buffer", mode = "i",  desc = "pick buffer after #buffer:" },
+    picker      = { "<tab>", "picker",      mode = "i",  desc = "open picker" },
   },
 }
 ```
