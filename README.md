@@ -9,7 +9,6 @@ briefing.nvim opens a floating window for composing natural language prompts enr
 - Floating markdown window tuned for writing prompts (wrap, line breaks, no code autocompletion)
 - Context variables (`#buffer`, `#diagnostics`, `#diff`, `#selection`, `#quickfix`, `#file`, `#files`) that resolve editor state into your prompt
 - Resource references (`@<file>`, `@<folder>`, `http(s)://url`) for attaching external content
-- Autocomplete for context variables via blink.cmp or nvim-cmp
 - Interactive file and directory pickers via snacks.picker
 - Adapter system to send prompts to different agents (sidekick.nvim or a custom callback)
 - Reusable prompt templates
@@ -18,7 +17,6 @@ briefing.nvim opens a floating window for composing natural language prompts enr
 
 - Neovim >= 0.10
 - [folke/snacks.nvim](https://github.com/folke/snacks.nvim) — picker backend
-- [saghen/blink.cmp](https://github.com/saghen/blink.cmp) or [hrsh7th/nvim-cmp](https://github.com/hrsh7th/nvim-cmp) — autocomplete
 - [folke/sidekick.nvim](https://github.com/folke/sidekick.nvim) — optional, for the sidekick adapter
 
 ## Installation
@@ -37,70 +35,6 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
   opts = {},
 }
 ```
-
-### Autocomplete setup
-
-After installing briefing.nvim, register the autocomplete source in your completion plugin config.
-
-#### blink.cmp
-
-Add the briefing source to your blink.cmp config using the setup helper:
-
-```lua
-{
-  "saghen/blink.cmp",
-  dependencies = {
-    "ruicsh/briefing.nvim",
-  },
-  opts = {
-    sources = {
-      providers = {
-        briefing = require("briefing.integrations.blink").setup({
-          -- Optional: adjust completion priority (lower = appears later)
-          score_offset = -10,
-        }),
-      },
-    },
-  },
-}
-```
-
-Or configure manually:
-
-```lua
-require("blink.cmp").setup({
-  sources = {
-    providers = {
-      briefing = {
-        module = "briefing.integrations.blink",
-        name = "Briefing",
-        enabled = function()
-          return vim.bo.filetype == "briefing"
-        end,
-      },
-    },
-    default = { "lsp", "path", "buffer", "briefing" },
-  },
-})
-```
-
-The blink.cmp source provides:
-
-- Variable completion after `#` — shows all context variables with descriptions
-- Suboption completion after `#variable:` — e.g., `#buffer:` shows `diff` and `all`
-- File path completion after `#file:` — requires at least 1 character, then shows matching files
-
-#### nvim-cmp
-
-```lua
-require("cmp").setup({
-  sources = {
-    { name = "briefing" },
-  },
-})
-```
-
-The autocomplete source only activates in briefing buffers (filetype `briefing`).
 
 ## Usage
 
@@ -127,7 +61,7 @@ The autocomplete source only activates in briefing buffers (filetype `briefing`)
 
 1. Open the briefing window with `:Briefing`
 2. Write your prompt in natural language
-3. Add context with `#` variables (e.g. `#buffer`, `#diagnostics`) — type `#` and use autocomplete
+3. Add context with `#` variables (e.g. `#buffer`, `#diagnostics`)
 4. Reference files with `@` or `#file:<C-]>` to open a picker
 5. Press `<C-s>` to resolve all tokens and send the prompt to your agent
 
@@ -143,7 +77,7 @@ Select text, then run `:Briefing`. The selection is captured and can be referenc
 
 ## Context Variables (`#`)
 
-Context variables insert editor state into your prompt. Type `#` in the briefing buffer to see completions.
+Context variables insert editor state into your prompt.
 
 | Variable        | Description                                                                                         | Sub-options                                                                        |
 | --------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
