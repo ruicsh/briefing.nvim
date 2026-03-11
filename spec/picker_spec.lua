@@ -654,11 +654,13 @@ describe("briefing.picker", function()
 			assert.is_false(matched)
 		end)
 
-		it("returns false when cursor is before pattern", function()
-			local line = "Check #file:"
-			local col = 5
-			local matched = picker.get_file_pattern(line, col)
-			assert.is_false(matched)
-		end)
+	it("returns false when cursor is before pattern", function()
+		local line = "Check #file:"
+		local col = 5
+		local matched = picker.get_file_pattern(line, col)
+		assert.is_false(matched)
+	end)
+end)
+
 	end)
 end)

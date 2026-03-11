@@ -55,14 +55,14 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 | `q`     | normal        | Close window (content persists)     |
 | `<C-x>` | insert/normal | Reset buffer (clear all content)    |
 | `<C-t>` | insert/normal | Open template picker                |
-| `<C-]>` | insert        | Open buffer picker after `#buffer:` |
+| `<Tab>` | insert        | Open picker after token or reference |
 
 ### Workflow
 
 1. Open the briefing window with `:Briefing`
 2. Write your prompt in natural language
 3. Add context with `#` variables (e.g. `#buffer`, `#diagnostics`)
-4. Reference files with `@` or `#file:<C-]>` to open a picker
+4. Reference files with `@` or `#file:<Tab>` to open a picker
 5. Press `<C-s>` to resolve all tokens and send the prompt to your agent
 
 ### Visual mode
@@ -85,7 +85,7 @@ Context variables insert editor state into your prompt.
 | `#selection`    | Visual selection captured when the window was opened — resolves to empty if no selection was active | —                                                                                  |
 | `#diagnostics`  | LSP diagnostics                                                                                     | `#diagnostics:buffer` (current buffer, default), `#diagnostics:all` (workspace)    |
 | `#diff`         | Git diff output                                                                                     | bare `#diff` defaults to unstaged; `#diff:staged`, `#diff:<sha>` (specific commit) |
-| `#file:<path>`  | A specific file's content                                                                           | `<C-]>` opens a file picker; multi-select inserts multiple `#file:` tokens         |
+| `#file:<path>`  | A specific file's content                                                                           | `<Tab>` opens a file picker; multi-select inserts multiple `#file:` tokens         |
 | `#files:<path>` | All files in a directory                                                                            | `#files:grep` (pattern search), `#files:glob` (glob match)                         |
 | `#quickfix`     | Quickfix list contents                                                                              | —                                                                                  |
 
@@ -101,15 +101,15 @@ Resources are explicit references to external content. Type `@` then `<tab>` to 
 
 ## Picker
 
-When `<C-]>` is pressed after a token that accepts input, an interactive picker opens:
+When `<Tab>` is pressed after a token that accepts input, an interactive picker opens:
 
-| Trigger            | Picker           | Result                                       |
-| ------------------ | ---------------- | -------------------------------------------- |
-| `#file:<C-]>`      | File picker      | `#file:src/foo.lua` (multi-select supported) |
-| `#files:<C-]>`     | Directory picker | `#files:src/`                                |
-| `#files:grep<C-]>` | Grep picker      | Grep results                                 |
-| `@<C-]>`           | File picker      | `@src/foo.lua`                               |
-| `#buffer:<C-]>`    | Buffer picker    | Select from open buffers                     |
+| Trigger            | Picker             | Result                                       |
+| ------------------ | ------------------ | -------------------------------------------- |
+| `#file:<Tab>`      | File picker        | `#file:src/foo.lua` (multi-select supported) |
+| `#files:<Tab>`     | Directory picker   | `#files:src/`                                |
+| `#files:grep<Tab>` | Grep picker        | Grep results                                 |
+| `@<Tab>`           | File picker        | `@src/foo.lua`                               |
+| `#buffer:<Tab>`    | Buffer picker      | Select from open buffers                     |
 
 Multi-select in the file picker produces separate tokens: `#file:a.lua #file:b.lua`.
 
