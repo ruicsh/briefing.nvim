@@ -11,7 +11,7 @@ function M.resolve()
 	dlog("selection resolve: reg z len=" .. (content and #content or 0))
 	if content and content ~= "" then
 		content = content:gsub("\n$", "") -- strip trailing newline from yank
-		local lang = vim.bo[vim.api.nvim_win_get_buf(vim.api.nvim_get_current_win())].filetype or ""
+		local lang = vim.t.briefing_prev_filetype or ""
 		return ("```%s\n%s\n```"):format(lang, content)
 	end
 

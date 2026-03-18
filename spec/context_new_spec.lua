@@ -138,6 +138,7 @@ describe("briefing.context.selection.resolve()", function()
 
 		vim.t.briefing_prev_vis_anchor = nil
 		vim.t.briefing_prev_vis_cursor = nil
+		vim.t.briefing_prev_filetype = "lua"
 	end)
 
 	after_each(function()
@@ -149,6 +150,7 @@ describe("briefing.context.selection.resolve()", function()
 		end
 		-- Clear register z
 		vim.fn.setreg("z", "")
+		vim.t.briefing_prev_filetype = nil
 		package.loaded["briefing.context.selection"] = nil
 	end)
 
@@ -170,8 +172,6 @@ describe("briefing.context.selection.resolve()", function()
 	end)
 
 	it("returns selected content wrapped in a fenced code block", function()
-		-- Set current window to test_winid so filetype is correct
-		vim.api.nvim_set_current_win(test_winid)
 		-- Set register z with simulated selection content
 		vim.fn.setreg("z", "local a = 1\nlocal b = 2")
 
@@ -181,7 +181,6 @@ describe("briefing.context.selection.resolve()", function()
 	end)
 
 	it("includes the filetype in the fenced code block header", function()
-		vim.api.nvim_set_current_win(test_winid)
 		vim.fn.setreg("z", "local a = 1")
 
 		local result = selection_resolver.resolve(test_winid)
@@ -189,7 +188,6 @@ describe("briefing.context.selection.resolve()", function()
 	end)
 
 	it("strips trailing newline from yanked content", function()
-		vim.api.nvim_set_current_win(test_winid)
 		-- Yank adds a trailing newline, verify it's stripped
 		vim.fn.setreg("z", "local a = 1\n")
 
@@ -199,7 +197,6 @@ describe("briefing.context.selection.resolve()", function()
 	end)
 
 	it("handles multi-line selection", function()
-		vim.api.nvim_set_current_win(test_winid)
 		vim.fn.setreg("z", "line one\nline two\nline three")
 
 		local result = selection_resolver.resolve(test_winid)

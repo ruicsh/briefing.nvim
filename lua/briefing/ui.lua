@@ -171,6 +171,10 @@ local function capture_visual_state()
 	local anchor = vim.fn.getpos("v")
 	local cursor = vim.fn.getpos(".")
 
+	-- Capture source filetype for selection resolution
+	local current_buf = vim.api.nvim_get_current_buf()
+	vim.t.briefing_prev_filetype = vim.bo[current_buf].filetype or ""
+
 	local result = { anchor = nil, cursor = nil }
 	if anchor[2] > 0 and cursor[2] > 0 then
 		result.anchor = anchor[2] .. "," .. anchor[3]
@@ -289,6 +293,7 @@ function M.close()
 	vim.t.briefing_prev_mode = nil
 	vim.t.briefing_prev_vis_anchor = nil
 	vim.t.briefing_prev_vis_cursor = nil
+	vim.t.briefing_prev_filetype = nil
 
 	if prev_winid and vim.api.nvim_win_is_valid(prev_winid) then
 		vim.api.nvim_set_current_win(prev_winid)
