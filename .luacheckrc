@@ -10,3 +10,9 @@ max_line_length = false
 files["spec/**/*.lua"] = {
 	std = "+busted",
 }
+
+-- Annotations file redefines globals for LuaLS type hints; allow it
+files["spec/annotations.lua"] = {
+	std = "+busted",
+	allow_defined_top = true,
+}

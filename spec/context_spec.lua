@@ -13,7 +13,7 @@ local function reset()
 end
 
 -- ---------------------------------------------------------------------------
--- context.parse()
+--- context.parse()
 -- ---------------------------------------------------------------------------
 
 describe("briefing.context.parse()", function()
@@ -93,7 +93,7 @@ describe("briefing.context.parse()", function()
 end)
 
 -- ---------------------------------------------------------------------------
--- context.resolve()
+--- context.resolve()
 -- ---------------------------------------------------------------------------
 
 describe("briefing.context.resolve()", function()
@@ -127,7 +127,7 @@ describe("briefing.context.resolve()", function()
 end)
 
 -- ---------------------------------------------------------------------------
--- context.buffer.resolve() — #buffer
+--- context.buffer.resolve() — #buffer
 -- ---------------------------------------------------------------------------
 
 describe("briefing.context.buffer.resolve() #buffer", function()

@@ -244,7 +244,7 @@ local function get_file_line_from_fugitive_diff(winid, cursor_line)
 		if #lines > 0 then
 			local line = lines[1]
 			-- Hunk header format: @@ -start,count +start,count @@
-			local old_start, old_count, new_start, new_count = line:match("^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
+			local _, _, new_start, _ = line:match("^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
 			if new_start then
 				hunk_header_line = line_num
 				hunk_new_start = tonumber(new_start)

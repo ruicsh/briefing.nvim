@@ -45,7 +45,7 @@ local mock_git_code = 0
 
 local function setup_mock_git()
 	orig_system = vim.system
-	vim.system = function(args, opts)
+	vim.system = function(_args, _opts)
 		return {
 			wait = function()
 				return {
@@ -221,7 +221,7 @@ describe("briefing.context.diff.resolve() #diff:<filename>", function()
 	it("handles untracked files", function()
 		-- First call returns empty (untracked, no diff in index)
 		local call_count = 0
-		vim.system = function(args, opts)
+		vim.system = function(_args, _opts)
 			call_count = call_count + 1
 			if call_count == 1 then
 				-- unstaged diff - empty for untracked
