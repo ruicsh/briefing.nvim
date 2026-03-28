@@ -7,7 +7,7 @@ briefing.nvim opens a floating window for composing natural language prompts enr
 ## Features
 
 - Floating markdown window tuned for writing prompts (wrap, line breaks, no code autocompletion)
-- Context variables (`#buffer`, `#diagnostics`, `#diff`, `#selection`, `#quickfix`, `#file`, `#files`) that resolve editor state into your prompt
+- Context variables (`#buffer`, `#diagnostics`, `#diff`, `#selection`, `#quickfix`, `#file`) that resolve editor state into your prompt
 - Resource references (`@<file>`, `@<folder>`, `http(s)://url`) for attaching external content
 - Interactive file and directory pickers via snacks.picker
 - Adapter system to send prompts to different agents (sidekick.nvim or a custom callback)
@@ -94,10 +94,6 @@ Context variables insert editor state into your prompt.
 | `#diff:<file>`          | Diff for a specific file                       | e.g. `#diff:src/foo.lua`                         |
 | `#diff:<sha>`           | Diff for a specific commit                     | e.g. `#diff:abc123`                              |
 | `#file:<path>`          | A specific file's content                      | `<Tab>` opens file picker                        |
-| `#files`                | All files in a directory (default)             | Lists files recursively from cwd                 |
-| `#files:<path>`         | All files in a specific directory              | e.g. `#files:src/`                               |
-| `#files:grep:<pattern>` | Files matching a grep pattern                  | e.g. `#files:grep:TODO`                          |
-| `#files:glob:<pattern>` | Files matching a glob pattern                  | e.g. `#files:glob:*.lua`                         |
 | `#quickfix`             | Quickfix list contents                         | —                                                |
 
 ## Resources (`@`)
@@ -117,8 +113,6 @@ When `<Tab>` is pressed after a token that accepts input, an interactive picker 
 | Trigger            | Picker           | Result                                       |
 | ------------------ | ---------------- | -------------------------------------------- |
 | `#file:<Tab>`      | File picker      | `#file:src/foo.lua` (multi-select supported) |
-| `#files:<Tab>`     | Directory picker | `#files:src/`                                |
-| `#files:grep<Tab>` | Grep picker      | Grep results                                 |
 | `@<Tab>`           | File picker      | `@src/foo.lua`                               |
 | `#buffer:<Tab>`    | Buffer picker    | Select from open buffers                     |
 
