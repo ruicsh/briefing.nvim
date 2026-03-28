@@ -456,3 +456,158 @@ diff --git a/file.lua b/file.lua
 		assert.is_true(notifications[#notifications].msg:find("git show failed") ~= nil)
 	end)
 end)
+
+-- ---------------------------------------------------------------------------
+-- Git filetype buffer tests (filetype=git, e.g., from :Git diff HEAD %)
+-- ---------------------------------------------------------------------------
+
+describe("briefing.context.diff.resolve() git filetype buffers", function()
+	local test_bufnr
+	local test_winid
+	local orig_notify
+	local notifications = {}
+
+	local function create_git_diff_buffer(lines)
+		local bufnr = vim.api.nvim_create_buf(false, true)
+		vim.bo[bufnr].filetype = "git"
+		if lines then
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+		end
+		return bufnr
+	end
+
+	before_each(function()
+		package.loaded["briefing.context.diff"] = nil
+		package.loaded["briefing.context.fugitive"] = nil
+		diff_resolver = require("briefing.context.diff")
+		test_bufnr = create_git_diff_buffer({
+			"diff --git a/lua/file.lua b/lua/file.lua",
+			"index abc123..def456 100644",
+			"--- a/lua/file.lua",
+			"+++ b/lua/file.lua",
+			"@@ -1,5 +1,5 @@",
+			" line1",
+			" line2",
+			"-line3_old",
+			"+line3_new",
+			" line4",
+			" line5",
+		})
+		test_winid = create_test_window(test_bufnr)
+		vim.api.nvim_set_current_win(test_winid)
+		orig_notify = vim.notify
+		notifications = {}
+		vim.notify = function(msg, level)
+			table.insert(notifications, { msg = msg, level = level })
+		end
+	end)
+
+	after_each(function()
+		cleanup(test_bufnr, test_winid)
+		vim.notify = orig_notify
+		package.loaded["briefing.context.diff"] = nil
+		package.loaded["briefing.context.fugitive"] = nil
+	end)
+
+	it("returns full diff content for #diff in git filetype buffer", function()
+		local result = diff_resolver.resolve(nil, test_winid)
+
+		assert.is_true(result:find("```diff") ~= nil)
+		assert.is_true(result:find("diff --git", 1, true) ~= nil)
+		assert.is_true(result:find("lua/file.lua") ~= nil)
+		assert.is_true(result:find("-line3_old", 1, true) ~= nil)
+		assert.is_true(result:find("+line3_new", 1, true) ~= nil)
+	end)
+
+	it("extracts single hunk when cursor is in a hunk", function()
+		vim.api.nvim_win_set_cursor(test_winid, { 8, 0 }) -- On "+line3_new"
+
+		local result = diff_resolver.resolve("hunk", test_winid)
+
+		assert.is_true(result:find("```diff") ~= nil)
+		assert.is_true(result:find("line3_new") ~= nil)
+		-- Should include headers
+		assert.is_true(result:find("diff --git", 1, true) ~= nil)
+		assert.is_true(result:find("--- a/", 1, true) ~= nil)
+		assert.is_true(result:find("+++ b/", 1, true) ~= nil)
+	end)
+
+	it("warns when cursor is before any hunk", function()
+		-- Create a buffer with a hunk
+		local bufnr = create_git_diff_buffer({
+			"diff --git a/file.lua b/file.lua",
+			"--- a/file.lua",
+			"+++ b/file.lua",
+			"@@ -5,3 +5,3 @@", -- Hunk starts at file line 5
+			" line1",
+			"-line2",
+			"+line2_new",
+		})
+		local winid = create_test_window(bufnr)
+		vim.api.nvim_set_current_win(winid)
+		vim.api.nvim_win_set_cursor(winid, { 2, 0 }) -- Line 2, before the hunk header at line 4
+
+		local result = diff_resolver.resolve("hunk", winid)
+
+		cleanup(bufnr, winid)
+
+		assert.equals("", result)
+		assert.is_true(#notifications > 0)
+		assert.is_true(notifications[#notifications].msg:find("cursor not in any hunk") ~= nil)
+	end)
+
+	it("extracts first hunk when cursor is there", function()
+		local bufnr = create_git_diff_buffer({
+			"diff --git a/file.lua b/file.lua",
+			"--- a/file.lua",
+			"+++ b/file.lua",
+			"@@ -1,3 +1,3 @@",
+			" line1",
+			"-line2_old",
+			"+line2_new",
+			" line3",
+		})
+		local winid = create_test_window(bufnr)
+		vim.api.nvim_set_current_win(winid)
+		vim.api.nvim_win_set_cursor(winid, { 7, 0 }) -- In hunk at "+line2_new"
+
+		local result = diff_resolver.resolve("hunk", winid)
+
+		cleanup(bufnr, winid)
+
+		assert.is_true(result:find("```diff") ~= nil)
+		assert.is_true(result:find("line2_new") ~= nil)
+	end)
+
+	it("handles diff with multiple files", function()
+		local bufnr = create_git_diff_buffer({
+			"diff --git a/file1.lua b/file1.lua",
+			"--- a/file1.lua",
+			"+++ b/file1.lua",
+			"@@ -1,3 +1,3 @@",
+			" line1",
+			"-line2_old",
+			"+line2_new",
+			" line3",
+			"diff --git a/file2.lua b/file2.lua",
+			"--- a/file2.lua",
+			"+++ b/file2.lua",
+			"@@ -1,3 +1,3 @@",
+			" line1",
+			"-line2_old",
+			"+line2_new",
+			" line3",
+		})
+		local winid = create_test_window(bufnr)
+		vim.api.nvim_set_current_win(winid)
+		vim.api.nvim_win_set_cursor(winid, { 6, 0 }) -- In first file's hunk
+
+		local result = diff_resolver.resolve("hunk", winid)
+
+		cleanup(bufnr, winid)
+
+		assert.is_true(result:find("```diff") ~= nil)
+		assert.is_true(result:find("file1.lua") ~= nil)
+		assert.is_true(result:find("file2.lua") == nil)
+	end)
+end)

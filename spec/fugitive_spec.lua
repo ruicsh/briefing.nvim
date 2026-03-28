@@ -39,6 +39,46 @@ local function cleanup(bufnr, winid)
 end
 
 -- ---------------------------------------------------------------------------
+-- is_git_diff() tests
+-- ---------------------------------------------------------------------------
+
+describe("briefing.context.fugitive.is_git_diff()", function()
+	local test_bufnr
+	local test_winid
+
+	before_each(function()
+		package.loaded["briefing.context.fugitive"] = nil
+		fugitive = require("briefing.context.fugitive")
+	end)
+
+	after_each(function()
+		cleanup(test_bufnr, test_winid)
+		package.loaded["briefing.context.fugitive"] = nil
+	end)
+
+	it("returns true for git filetype buffers", function()
+		test_bufnr = create_test_buffer({ "some diff content" }, "/tmp/git-diff-buffer", "git")
+		test_winid = create_test_window(test_bufnr)
+
+		assert.is_true(fugitive.is_git_diff(test_winid))
+	end)
+
+	it("returns false for non-git filetype buffers", function()
+		test_bufnr = create_test_buffer({ "some content" }, "/path/to/file.lua", "lua")
+		test_winid = create_test_window(test_bufnr)
+
+		assert.is_false(fugitive.is_git_diff(test_winid))
+	end)
+
+	it("returns false for fugitive filetype buffers", function()
+		test_bufnr = create_test_buffer({ "some content" }, "/path/to/repo/.git/index", "fugitive")
+		test_winid = create_test_window(test_bufnr)
+
+		assert.is_false(fugitive.is_git_diff(test_winid))
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
 -- is_fugitive() tests
 -- ---------------------------------------------------------------------------
 
@@ -242,5 +282,110 @@ describe("briefing.context.fugitive.get_context()", function()
 
 		local ctx = fugitive.get_context(test_winid)
 		assert.is_nil(ctx)
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- get_context() tests for git diff buffers (filetype=git)
+-- ---------------------------------------------------------------------------
+
+describe("briefing.context.fugitive.get_context() git diff buffers", function()
+	local test_bufnr
+	local test_winid
+
+	before_each(function()
+		package.loaded["briefing.context.fugitive"] = nil
+		fugitive = require("briefing.context.fugitive")
+	end)
+
+	after_each(function()
+		cleanup(test_bufnr, test_winid)
+		package.loaded["briefing.context.fugitive"] = nil
+	end)
+
+	it("returns hunk context when cursor is on a diff line in git buffer", function()
+		test_bufnr = create_test_buffer({
+			"diff --git a/lua/file.lua b/lua/file.lua",
+			"index abc123..def456 100644",
+			"--- a/lua/file.lua",
+			"+++ b/lua/file.lua",
+			"@@ -1,3 +1,3 @@",
+			" context line",
+			"-removed line",
+			"+added line",
+			" context line",
+		}, "/tmp/git-diff", "git")
+		test_winid = create_test_window(test_bufnr)
+		vim.api.nvim_win_set_cursor(test_winid, { 8, 0 }) -- On "+added line"
+
+		local ctx = fugitive.get_context(test_winid)
+		assert.is_not_nil(ctx)
+		assert.equals("hunk", ctx.type)
+		assert.equals("lua/file.lua", ctx.path)
+	end)
+
+	it("returns hunk context when cursor is on a removed line", function()
+		test_bufnr = create_test_buffer({
+			"diff --git a/lua/file.lua b/lua/file.lua",
+			"--- a/lua/file.lua",
+			"+++ b/lua/file.lua",
+			"@@ -1,3 +1,3 @@",
+			" context line",
+			"-removed line",
+			"+added line",
+		}, "/tmp/git-diff", "git")
+		test_winid = create_test_window(test_bufnr)
+		vim.api.nvim_win_set_cursor(test_winid, { 6, 0 }) -- On "-removed line"
+
+		local ctx = fugitive.get_context(test_winid)
+		assert.is_not_nil(ctx)
+		assert.equals("hunk", ctx.type)
+		assert.equals("lua/file.lua", ctx.path)
+	end)
+
+	it("returns diff context when cursor is not on a hunk line", function()
+		test_bufnr = create_test_buffer({
+			"diff --git a/lua/file.lua b/lua/file.lua",
+			"--- a/lua/file.lua",
+			"+++ b/lua/file.lua",
+			"@@ -1,3 +1,3 @@",
+			" context line",
+		}, "/tmp/git-diff", "git")
+		test_winid = create_test_window(test_bufnr)
+		vim.api.nvim_win_set_cursor(test_winid, { 1, 0 }) -- On "diff --git" line
+
+		local ctx = fugitive.get_context(test_winid)
+		assert.is_not_nil(ctx)
+		assert.equals("diff", ctx.type)
+		assert.equals("lua/file.lua", ctx.path)
+	end)
+
+	it("returns hunk context without path when filename cannot be determined", function()
+		test_bufnr = create_test_buffer({
+			"@@ -1,3 +1,3 @@",
+			" context line",
+			"+added line",
+		}, "/tmp/git-diff", "git")
+		test_winid = create_test_window(test_bufnr)
+		vim.api.nvim_win_set_cursor(test_winid, { 3, 0 }) -- On "+added line"
+
+		local ctx = fugitive.get_context(test_winid)
+		assert.is_not_nil(ctx)
+		assert.equals("hunk", ctx.type)
+		assert.is_nil(ctx.path)
+	end)
+
+	it("returns diff context without path when filename cannot be determined", function()
+		test_bufnr = create_test_buffer({
+			"@@ -1,3 +1,3 @@",
+			" context line",
+		}, "/tmp/git-diff", "git")
+		test_winid = create_test_window(test_bufnr)
+		vim.api.nvim_win_set_cursor(test_winid, { 1, 0 }) -- On header line
+
+		local ctx = fugitive.get_context(test_winid)
+		assert.is_not_nil(ctx)
+		assert.equals("diff", ctx.type)
+		assert.is_nil(ctx.path)
 	end)
 end)

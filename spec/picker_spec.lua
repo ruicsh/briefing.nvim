@@ -50,6 +50,13 @@ describe("briefing.picker", function()
 
 	describe("open_picker() with buffer type", function()
 		local captured_lines
+		local orig_nvim_buf_get_lines = vim.api.nvim_buf_get_lines
+		local orig_nvim_buf_set_lines = vim.api.nvim_buf_set_lines
+		local orig_nvim_win_is_valid = vim.api.nvim_win_is_valid
+		local orig_nvim_set_current_win = vim.api.nvim_set_current_win
+		local orig_schedule = vim.schedule
+		local orig_cmd = vim.cmd
+		local orig_getcwd = vim.fn.getcwd
 
 		before_each(function()
 			captured_lines = nil
@@ -87,13 +94,13 @@ describe("briefing.picker", function()
 		end)
 
 		after_each(function()
-			vim.api.nvim_buf_get_lines = nil
-			vim.api.nvim_buf_set_lines = nil
-			vim.api.nvim_win_is_valid = nil
-			vim.api.nvim_set_current_win = nil
-			vim.schedule = nil
-			vim.cmd = nil
-			vim.fn.getcwd = nil
+			vim.api.nvim_buf_get_lines = orig_nvim_buf_get_lines
+			vim.api.nvim_buf_set_lines = orig_nvim_buf_set_lines
+			vim.api.nvim_win_is_valid = orig_nvim_win_is_valid
+			vim.api.nvim_set_current_win = orig_nvim_set_current_win
+			vim.schedule = orig_schedule
+			vim.cmd = orig_cmd
+			vim.fn.getcwd = orig_getcwd
 		end)
 
 		it("replaces #buffer: with #file:<relative_path>", function()
@@ -328,6 +335,15 @@ describe("briefing.picker", function()
 
 	describe("open_picker() with file type", function()
 		local captured_lines
+		local orig_get_current_buf = vim.api.nvim_get_current_buf
+		local orig_get_current_win = vim.api.nvim_get_current_win
+		local orig_nvim_buf_get_lines = vim.api.nvim_buf_get_lines
+		local orig_nvim_buf_set_lines = vim.api.nvim_buf_set_lines
+		local orig_nvim_win_is_valid = vim.api.nvim_win_is_valid
+		local orig_nvim_set_current_win = vim.api.nvim_set_current_win
+		local orig_schedule = vim.schedule
+		local orig_cmd = vim.cmd
+		local orig_getcwd = vim.fn.getcwd
 
 		before_each(function()
 			captured_lines = nil
@@ -369,15 +385,15 @@ describe("briefing.picker", function()
 		end)
 
 		after_each(function()
-			vim.api.nvim_get_current_buf = nil
-			vim.api.nvim_get_current_win = nil
-			vim.api.nvim_buf_get_lines = nil
-			vim.api.nvim_buf_set_lines = nil
-			vim.api.nvim_win_is_valid = nil
-			vim.api.nvim_set_current_win = nil
-			vim.schedule = nil
-			vim.cmd = nil
-			vim.fn.getcwd = nil
+			vim.api.nvim_get_current_buf = orig_get_current_buf
+			vim.api.nvim_get_current_win = orig_get_current_win
+			vim.api.nvim_buf_get_lines = orig_nvim_buf_get_lines
+			vim.api.nvim_buf_set_lines = orig_nvim_buf_set_lines
+			vim.api.nvim_win_is_valid = orig_nvim_win_is_valid
+			vim.api.nvim_set_current_win = orig_nvim_set_current_win
+			vim.schedule = orig_schedule
+			vim.cmd = orig_cmd
+			vim.fn.getcwd = orig_getcwd
 		end)
 
 		it("appends #file:<path> after #file: token", function()
@@ -494,9 +510,17 @@ describe("briefing.picker", function()
 
 	describe("on_tab()", function()
 		local original_feedkeys
+		local original_get_current_buf
+		local original_get_current_win
+		local original_win_get_cursor
+		local original_buf_get_lines
 
 		before_each(function()
 			original_feedkeys = vim.api.nvim_feedkeys
+			original_get_current_buf = vim.api.nvim_get_current_buf
+			original_get_current_win = vim.api.nvim_get_current_win
+			original_win_get_cursor = vim.api.nvim_win_get_cursor
+			original_buf_get_lines = vim.api.nvim_buf_get_lines
 			vim.api.nvim_get_current_buf = function()
 				return 999
 			end
@@ -507,11 +531,10 @@ describe("briefing.picker", function()
 
 		after_each(function()
 			vim.api.nvim_feedkeys = original_feedkeys
-			vim.api.nvim_get_current_buf = nil
-			vim.api.nvim_get_current_win = nil
-			vim.api.nvim_win_get_cursor = nil
-			vim.api.nvim_buf_get_lines = nil
-			vim.bo = vim.bo or {}
+			vim.api.nvim_get_current_buf = original_get_current_buf
+			vim.api.nvim_get_current_win = original_get_current_win
+			vim.api.nvim_win_get_cursor = original_win_get_cursor
+			vim.api.nvim_buf_get_lines = original_buf_get_lines
 		end)
 
 		it("falls back to normal tab in non-briefing buffers", function()
@@ -647,11 +670,11 @@ describe("briefing.picker", function()
 			assert.is_false(matched)
 		end)
 
-	it("returns false when cursor is before pattern", function()
-		local line = "Check #file:"
-		local col = 5
-		local matched = picker.get_file_pattern(line, col)
-		assert.is_false(matched)
-	end)
+		it("returns false when cursor is before pattern", function()
+			local line = "Check #file:"
+			local col = 5
+			local matched = picker.get_file_pattern(line, col)
+			assert.is_false(matched)
+		end)
 	end)
 end)

@@ -34,6 +34,88 @@ function M.is_fugitive(winid)
 	return false
 end
 
+--- Check if a buffer is a git diff buffer (filetype "git").
+--- These are diff buffers created by commands like `:Git diff HEAD %`
+---@param winid? integer Window handle (defaults to current window)
+---@return boolean
+function M.is_git_diff(winid)
+	local win = winid or 0
+	if win ~= 0 and not vim.api.nvim_win_is_valid(win) then
+		win = 0
+	end
+
+	local bufnr = vim.api.nvim_win_get_buf(win)
+	local filetype = vim.bo[bufnr].filetype
+
+	if filetype == "git" then
+		dlog("fugitive: detected git diff buffer (filetype=git)")
+		return true
+	end
+
+	return false
+end
+
+--- Find filename in a git diff buffer content.
+--- Searches for "diff --git a/path b/path" or "+++ b/path" lines
+---@param winid integer Window handle
+---@return string|nil filename The filename, or nil if not found
+local function find_filename_in_git_diff(winid)
+	local bufnr = vim.api.nvim_win_get_buf(winid)
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+	for _, line in ipairs(lines) do
+		-- Try to extract from "diff --git a/path b/path"
+		local _, new_path = line:match("^diff %-%-git a/(.+) b/(.+)$")
+		if new_path then
+			dlog("fugitive: found filename in diff --git line: " .. new_path)
+			return new_path
+		end
+
+		-- Try to extract from "+++ b/path"
+		local file_path = line:match("^%+%+%+ b/(.+)$")
+		if file_path then
+			dlog("fugitive: found filename in +++ line: " .. file_path)
+			return file_path
+		end
+	end
+
+	return nil
+end
+
+--- Check if the cursor is on a hunk line in a git diff buffer.
+--- Hunk lines are lines starting with +, -, or space (context/added/removed)
+--- that appear after a hunk header.
+---@param winid? integer Window handle (defaults to current window)
+---@return boolean
+local function is_git_diff_hunk_line(winid)
+	local win = winid or 0
+	if win ~= 0 and not vim.api.nvim_win_is_valid(win) then
+		win = 0
+	end
+
+	local cursor_line = vim.api.nvim_win_get_cursor(win)[1]
+	local bufnr = vim.api.nvim_win_get_buf(win)
+	local lines = vim.api.nvim_buf_get_lines(bufnr, cursor_line - 1, cursor_line, false)
+
+	if #lines == 0 then
+		return false
+	end
+
+	local line = lines[1]
+
+	-- Hunk lines start with +, -, or space (but not +++ or --- which are headers)
+	if line:match("^%+%+%+") or line:match("^%-%-%-") then
+		return false
+	end
+
+	if line:match("^[%+%-%s]") then
+		dlog("fugitive: detected git diff hunk line: " .. line:sub(1, 30))
+		return true
+	end
+
+	return false
+end
+
 --- Check if the current line in a fugitive summary buffer is a diff line.
 --- Diff lines in fugitive summary buffers are indented with a space
 --- and start with + or - (representing added/removed lines).
@@ -212,12 +294,37 @@ end
 --- Returns information about what token should be auto-inserted.
 ---@param winid? integer Window handle (defaults to current window)
 ---@return table|nil context Context info or nil if not applicable
----   - type: "hunk" | "file" — what type of context
+---   - type: "hunk" | "file" | "diff" — what type of context
 ---   - path: string (optional) — the file path (for hunk or file types)
 function M.get_context(winid)
 	local win = winid or 0
 	if win ~= 0 and not vim.api.nvim_win_is_valid(win) then
 		win = 0
+	end
+
+	-- Check if we're in a git diff buffer (filetype "git")
+	if M.is_git_diff(win) then
+		local filename = find_filename_in_git_diff(win)
+
+		-- Check if on a hunk line
+		if is_git_diff_hunk_line(win) then
+			if filename then
+				dlog("fugitive: context is hunk (git diff buffer): " .. filename)
+				return { type = "hunk", path = filename }
+			else
+				dlog("fugitive: context is hunk (git diff buffer) but no filename found")
+				return { type = "hunk" }
+			end
+		end
+
+		-- Not on a hunk line - return diff context
+		if filename then
+			dlog("fugitive: context is diff (git diff buffer): " .. filename)
+			return { type = "diff", path = filename }
+		else
+			dlog("fugitive: context is diff (git diff buffer)")
+			return { type = "diff" }
+		end
 	end
 
 	-- First check if we're in a fugitive buffer

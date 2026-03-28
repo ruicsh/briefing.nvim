@@ -69,6 +69,15 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 Select text, then run `:Briefing`. The selection is captured and can be referenced in your prompt via `#selection`.
 
+### Git diff buffers
+
+When opening Briefing from a git diff buffer (e.g., from `:Git diff HEAD %` or any buffer with `filetype=git`):
+
+- **Cursor on a hunk** (lines starting with `+`, `-`, or context lines): auto-inserts `#diff:hunk` to capture just that hunk
+- **Cursor elsewhere**: auto-inserts `#diff` to capture the entire diff content
+
+This works seamlessly with fugitive, gitsigns, or any tool that creates git diff buffers.
+
 ### Buffer lifecycle
 
 - Content **persists** when you close the window with `q` — reopening shows your previous draft
@@ -79,21 +88,21 @@ Select text, then run `:Briefing`. The selection is captured and can be referenc
 
 Context variables insert editor state into your prompt.
 
-| Variable                | Description                                    | Notes                                            |
-| ----------------------- | ---------------------------------------------- | ------------------------------------------------ |
-| `#buffer`               | Current buffer contents                        | —                                                |
-| `#selection`            | Visual selection captured when Briefing opened | Resolves to empty if no selection was active     |
-| `#diagnostics`          | LSP diagnostics for current buffer (default)   | Same as `#diagnostics:buffer`                    |
-| `#diagnostics:buffer`   | LSP diagnostics for current buffer             | —                                                |
-| `#diagnostics:all`      | LSP diagnostics for entire workspace           | —                                                |
-| `#diff`                 | Changed portions of current buffer (default)   | Same as `#diff:buffer`                           |
-| `#diff:staged`          | Staged changes                                 | —                                                |
-| `#diff:buffer`          | Changed portions of current buffer             | `<Tab>` opens buffer picker                      |
-| `#diff:hunk`            | Hunk at cursor position                        | Works in normal buffers, diff mode, and fugitive |
-| `#diff:<file>`          | Diff for a specific file                       | e.g. `#diff:src/foo.lua`                         |
-| `#diff:<sha>`           | Diff for a specific commit                     | e.g. `#diff:abc123`                              |
-| `#file:<path>`          | A specific file's content                      | `<Tab>` opens file picker                        |
-| `#quickfix`             | Quickfix list contents                         | —                                                |
+| Variable              | Description                                    | Notes                                                              |
+| --------------------- | ---------------------------------------------- | ------------------------------------------------------------------ |
+| `#buffer`             | Current buffer contents                        | —                                                                  |
+| `#selection`          | Visual selection captured when Briefing opened | Resolves to empty if no selection was active                       |
+| `#diagnostics`        | LSP diagnostics for current buffer (default)   | Same as `#diagnostics:buffer`                                      |
+| `#diagnostics:buffer` | LSP diagnostics for current buffer             | —                                                                  |
+| `#diagnostics:all`    | LSP diagnostics for entire workspace           | —                                                                  |
+| `#diff`               | Changed portions of current buffer (default)   | Same as `#diff:buffer`; in git diff buffers, uses buffer content   |
+| `#diff:staged`        | Staged changes                                 | —                                                                  |
+| `#diff:buffer`        | Changed portions of current buffer             | `<Tab>` opens buffer picker                                        |
+| `#diff:hunk`          | Hunk at cursor position                        | Works in normal buffers, diff mode, fugitive, and git diff buffers |
+| `#diff:<file>`        | Diff for a specific file                       | e.g. `#diff:src/foo.lua`                                           |
+| `#diff:<sha>`         | Diff for a specific commit                     | e.g. `#diff:abc123`                                                |
+| `#file:<path>`        | A specific file's content                      | `<Tab>` opens file picker                                          |
+| `#quickfix`           | Quickfix list contents                         | —                                                                  |
 
 ## Resources (`@`)
 
@@ -109,12 +118,12 @@ Resources are explicit references to external content. Type `@` then `<tab>` to 
 
 When `<Tab>` is pressed after a token that accepts input, an interactive picker opens:
 
-| Trigger              | Picker           | Result                                       |
-| ------------------   | ---------------- | -------------------------------------------- |
-| `#file:<Tab>`        | File picker      | `#file:src/foo.lua` (multi-select supported) |
-| `@<Tab>`             | File picker      | `@src/foo.lua`                               |
-| `#buffer:<Tab>`      | Buffer picker    | Select from open buffers                     |
-| `#diff:buffer:<Tab>` | Buffer picker    | `#file:path/to/buffer`                       |
+| Trigger              | Picker        | Result                                       |
+| -------------------- | ------------- | -------------------------------------------- |
+| `#file:<Tab>`        | File picker   | `#file:src/foo.lua` (multi-select supported) |
+| `@<Tab>`             | File picker   | `@src/foo.lua`                               |
+| `#buffer:<Tab>`      | Buffer picker | Select from open buffers                     |
+| `#diff:buffer:<Tab>` | Buffer picker | `#file:path/to/buffer`                       |
 
 Multi-select in the file picker produces separate tokens: `#file:a.lua #file:b.lua`.
 

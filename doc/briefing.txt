@@ -96,6 +96,17 @@ Visual Mode:~                                                              [1]
     Select text, then run `:Briefing`. The selection is captured and can be
     referenced in your prompt via `#selection`.
 
+Git Diff Buffers:~                                                         [1]
+    When opening Briefing from a git diff buffer (e.g., from `:Git diff HEAD %`
+    or any buffer with `filetype=git`):
+
+    • Cursor on a hunk (lines starting with `+`, `-`, or context lines after
+      `@@` header): auto-inserts `#diff:hunk` to capture just that hunk
+    • Cursor elsewhere: auto-inserts `#diff` to capture the entire diff content
+
+    This works seamlessly with fugitive, gitsigns, or any tool that creates
+    git diff buffers.
+
 Buffer Lifecycle:~                                                         [1]
     • Content persists when you close the window with `q` — reopening shows
       your previous draft
@@ -116,11 +127,12 @@ Context variables insert editor state into your prompt.
 |                         | (default)                                 |                                                 |
 | `#diagnostics:buffer`   | LSP diagnostics for current buffer        | —                                               |
 | `#diagnostics:all`      | LSP diagnostics for entire workspace      | —                                               |
-| `#diff`                 | Changed portions of current buffer        | Same as `#diff:buffer`                          |
-|                         | (default)                                 |                                                 |
+| `#diff`                 | Changed portions of current buffer        | Same as `#diff:buffer`; in git diff buffers,  |
+|                         | (default)                                 | uses buffer content directly                    |
 | `#diff:staged`          | Staged changes                            | —                                               |
 | `#diff:buffer`          | Changed portions of current buffer        | `<Tab>` opens buffer picker                     |
-| `#diff:hunk`            | Hunk at cursor position                   | Works in normal buffers, diff mode, and fugitive|
+| `#diff:hunk`            | Hunk at cursor position                   | Works in normal buffers, diff mode, fugitive, |
+|                         |                                           | and git diff buffers                            |
 | `#diff:<file>`          | Diff for a specific file                  | e.g. `#diff:src/foo.lua`                        |
 | `#diff:<sha>`           | Diff for a specific commit                | e.g. `#diff:abc123`                             |
 | `#file:<path>`          | A specific file's content                 | `<Tab>` opens file picker                       |

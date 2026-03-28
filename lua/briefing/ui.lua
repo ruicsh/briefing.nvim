@@ -285,6 +285,10 @@ function M.open()
 				local token = "#diff:" .. ctx.path
 				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { token, "", "" })
 				vim.api.nvim_win_set_cursor(winid, { 3, 0 })
+			elseif ctx.type == "diff" then
+				-- On a git diff buffer but not on a hunk line - insert #diff to get whole diff
+				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#diff", "", "" })
+				vim.api.nvim_win_set_cursor(winid, { 3, 0 })
 			else
 				vim.cmd("startinsert")
 			end

@@ -199,5 +199,3 @@ describe("briefing.context.buffer.resolve() #buffer", function()
 		assert.is_true(result:find("local x = 1") ~= nil)
 	end)
 end)
-
-

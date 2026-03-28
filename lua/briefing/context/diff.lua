@@ -98,6 +98,89 @@ local function extract_hunk_from_diff(diff_output, cursor_line)
 	return table.concat(result, "\n")
 end
 
+--- Extract a single hunk from git diff buffer content based on cursor position.
+--- For git diff buffers, we track buffer line positions, not file line numbers.
+---@param source_winid integer Window handle for the source window
+---@return string
+local function extract_hunk_from_git_diff_buffer(source_winid)
+	local bufnr = get_win_buf(source_winid)
+	local cursor_line = get_cursor_line(source_winid)
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+	local result = {}
+	local in_target_hunk = false
+	local found_target_hunk = false
+	local file_headers = {}
+	local current_buffer_line = 0
+
+	for _, line in ipairs(lines) do
+		current_buffer_line = current_buffer_line + 1
+
+		-- Check for file-level headers
+		if line:match("^diff %-%-git") then
+			-- New file diff section starts
+			if in_target_hunk then
+				break
+			end
+			file_headers = { line }
+		elseif line:match("^---") or line:match("^%+%+%+") or line:match("^index ") then
+			file_headers[#file_headers + 1] = line
+		elseif in_target_hunk then
+			-- We're collecting the target hunk - check for end markers
+			if line:match("^@@ ") or line:match("^diff %-%-git") then
+				break
+			end
+			result[#result + 1] = line
+		else
+			-- Hunk header format: @@ -start,count +start,count @@
+			local is_hunk_header = line:match("^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
+
+			if is_hunk_header then
+				-- Check if cursor is on or after this hunk header line in the buffer
+				if cursor_line >= current_buffer_line then
+					in_target_hunk = true
+					found_target_hunk = true
+					-- Add collected file headers first
+					for _, header in ipairs(file_headers) do
+						result[#result + 1] = header
+					end
+					result[#result + 1] = line
+				end
+			end
+		end
+	end
+
+	if not found_target_hunk then
+		return ""
+	end
+
+	return table.concat(result, "\n")
+end
+
+--- Get hunk from a git diff buffer (filetype "git").
+---@param source_winid integer Window handle for the source window
+---@return string
+local function get_git_filetype_hunk(source_winid)
+	local hunk = extract_hunk_from_git_diff_buffer(source_winid)
+	if hunk == "" then
+		vim.notify("Briefing: #diff:hunk — cursor not in any hunk", vim.log.levels.WARN)
+		return ""
+	end
+
+	dlog("hunk: git diff buffer hunk extracted")
+	return wrap_diff(hunk)
+end
+
+--- Get full diff content from a git diff buffer (filetype "git").
+---@param source_winid integer Window handle for the source window
+---@return string
+local function get_git_filetype_diff(source_winid)
+	local bufnr = get_win_buf(source_winid)
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	local diff_content = table.concat(lines, "\n")
+	return wrap_diff(diff_content)
+end
+
 --- Get hunk using git diff for the file at cursor position.
 ---@param source_winid integer Window handle for the source window
 ---@return string
@@ -169,8 +252,8 @@ local function try_builtin_diff(source_winid)
 				if diff_output and diff_output ~= "" then
 					local hunk = extract_hunk_from_diff(diff_output, cursor_line)
 					if hunk ~= "" then
-				dlog("hunk: built-in diff found hunk at line " .. cursor_line)
-					return wrap_diff(hunk)
+						dlog("hunk: built-in diff found hunk at line " .. cursor_line)
+						return wrap_diff(hunk)
 					end
 				end
 			end
@@ -246,18 +329,37 @@ local function resolve_buffer(source_winid)
 	return wrap_diff(result)
 end
 
+--- Resolve `#diff` (no suboption) — uses buffer content for git diff buffers.
+---@param source_winid integer Window handle for the source window
+---@return string
+local function resolve_diff(source_winid)
+	-- Check if we're in a git diff buffer (filetype "git")
+	local fugitive = require("briefing.context.fugitive")
+	if fugitive.is_git_diff(source_winid) then
+		return get_git_filetype_diff(source_winid)
+	end
+
+	-- Otherwise default to buffer-based git diff
+	return resolve_buffer(source_winid)
+end
+
 --- Resolve `#diff:hunk` — hunk at cursor position.
 ---@param source_winid integer Window handle for the source window
 ---@return string
 local function resolve_hunk(source_winid)
-	-- First check built-in diff mode (vimdiff/diffsplit)
+	-- First check if we're in a git diff buffer (filetype "git")
+	local fugitive = require("briefing.context.fugitive")
+	if fugitive.is_git_diff(source_winid) then
+		return get_git_filetype_hunk(source_winid)
+	end
+
+	-- Check built-in diff mode (vimdiff/diffsplit)
 	local result = try_builtin_diff(source_winid)
 	if result then
 		return result
 	end
 
 	-- Check if we're in a fugitive buffer
-	local fugitive = require("briefing.context.fugitive")
 	if fugitive.is_fugitive(source_winid) then
 		return get_fugitive_hunk(source_winid)
 	end
@@ -373,7 +475,9 @@ function M.resolve(suboption, prev_winid)
 	-- Use prev_winid if valid, otherwise use current window
 	local source_winid = prev_winid and vim.api.nvim_win_is_valid(prev_winid) and prev_winid or 0
 
-	if suboption == nil or suboption == "buffer" then
+	if suboption == nil then
+		return resolve_diff(source_winid)
+	elseif suboption == "buffer" then
 		return resolve_buffer(source_winid)
 	elseif suboption == "unstaged" then
 		return resolve_unstaged()
