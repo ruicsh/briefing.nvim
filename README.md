@@ -49,12 +49,12 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ### Keymaps
 
-| Key     | Mode          | Action                              |
-| ------- | ------------- | ----------------------------------- |
-| `<C-s>` | insert/normal | Send prompt to agent                |
-| `q`     | normal        | Close window (content persists)     |
-| `<C-x>` | insert/normal | Reset buffer (clear all content)    |
-| `<C-t>` | insert/normal | Open template picker                |
+| Key     | Mode          | Action                               |
+| ------- | ------------- | ------------------------------------ |
+| `<C-s>` | insert/normal | Send prompt to agent                 |
+| `q`     | normal        | Close window (content persists)      |
+| `<C-x>` | insert/normal | Reset buffer (clear all content)     |
+| `<C-t>` | insert/normal | Open template picker                 |
 | `<Tab>` | insert        | Open picker after token or reference |
 
 ### Workflow
@@ -79,15 +79,26 @@ Select text, then run `:Briefing`. The selection is captured and can be referenc
 
 Context variables insert editor state into your prompt.
 
-| Variable        | Description                                                                                         | Sub-options                                                                        |
-| --------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `#buffer`       | Current buffer contents                                                                             | `#buffer:diff` (changed portions only), `#buffer:all` (entire buffer, default)     |
-| `#selection`    | Visual selection captured when the window was opened — resolves to empty if no selection was active | —                                                                                  |
-| `#diagnostics`  | LSP diagnostics                                                                                     | `#diagnostics:buffer` (current buffer, default), `#diagnostics:all` (workspace)    |
-| `#diff`         | Git diff output                                                                                     | bare `#diff` defaults to unstaged; `#diff:staged`, `#diff:<sha>` (specific commit) |
-| `#file:<path>`  | A specific file's content                                                                           | `<Tab>` opens a file picker; multi-select inserts multiple `#file:` tokens         |
-| `#files:<path>` | All files in a directory                                                                            | `#files:grep` (pattern search), `#files:glob` (glob match)                         |
-| `#quickfix`     | Quickfix list contents                                                                              | —                                                                                  |
+| Variable                | Description                                    | Notes                                            |
+| ----------------------- | ---------------------------------------------- | ------------------------------------------------ |
+| `#buffer`               | Current buffer contents (default)              | Same as `#buffer:diff`                           |
+| `#buffer:diff`          | Changed portions of current buffer             | —                                                |
+| `#buffer:all`           | Entire buffer contents                         | —                                                |
+| `#selection`            | Visual selection captured when Briefing opened | Resolves to empty if no selection was active     |
+| `#diagnostics`          | LSP diagnostics for current buffer (default)   | Same as `#diagnostics:buffer`                    |
+| `#diagnostics:buffer`   | LSP diagnostics for current buffer             | —                                                |
+| `#diagnostics:all`      | LSP diagnostics for entire workspace           | —                                                |
+| `#diff`                 | Unstaged changes (default)                     | Same as `#diff:unstaged`                         |
+| `#diff:staged`          | Staged changes                                 | —                                                |
+| `#diff:hunk`            | Hunk at cursor position                        | Works in normal buffers, diff mode, and fugitive |
+| `#diff:<file>`          | Diff for a specific file                       | e.g. `#diff:src/foo.lua`                         |
+| `#diff:<sha>`           | Diff for a specific commit                     | e.g. `#diff:abc123`                              |
+| `#file:<path>`          | A specific file's content                      | `<Tab>` opens file picker                        |
+| `#files`                | All files in a directory (default)             | Lists files recursively from cwd                 |
+| `#files:<path>`         | All files in a specific directory              | e.g. `#files:src/`                               |
+| `#files:grep:<pattern>` | Files matching a grep pattern                  | e.g. `#files:grep:TODO`                          |
+| `#files:glob:<pattern>` | Files matching a glob pattern                  | e.g. `#files:glob:*.lua`                         |
+| `#quickfix`             | Quickfix list contents                         | —                                                |
 
 ## Resources (`@`)
 
@@ -103,13 +114,13 @@ Resources are explicit references to external content. Type `@` then `<tab>` to 
 
 When `<Tab>` is pressed after a token that accepts input, an interactive picker opens:
 
-| Trigger            | Picker             | Result                                       |
-| ------------------ | ------------------ | -------------------------------------------- |
-| `#file:<Tab>`      | File picker        | `#file:src/foo.lua` (multi-select supported) |
-| `#files:<Tab>`     | Directory picker   | `#files:src/`                                |
-| `#files:grep<Tab>` | Grep picker        | Grep results                                 |
-| `@<Tab>`           | File picker        | `@src/foo.lua`                               |
-| `#buffer:<Tab>`    | Buffer picker      | Select from open buffers                     |
+| Trigger            | Picker           | Result                                       |
+| ------------------ | ---------------- | -------------------------------------------- |
+| `#file:<Tab>`      | File picker      | `#file:src/foo.lua` (multi-select supported) |
+| `#files:<Tab>`     | Directory picker | `#files:src/`                                |
+| `#files:grep<Tab>` | Grep picker      | Grep results                                 |
+| `@<Tab>`           | File picker      | `@src/foo.lua`                               |
+| `#buffer:<Tab>`    | Buffer picker    | Select from open buffers                     |
 
 Multi-select in the file picker produces separate tokens: `#file:a.lua #file:b.lua`.
 
