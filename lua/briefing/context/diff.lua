@@ -15,15 +15,14 @@ local function git(args)
 	return (completed.stdout or ""), true
 end
 
---- Wrap raw diff output in a fenced diff block with a header label.
----@param label string  human-readable label, e.g. "#diff:unstaged"
+--- Wrap raw diff output in a fenced diff block.
 ---@param output string
 ---@return string
-local function wrap_diff(label, output)
+local function wrap_diff(output)
 	if output == "" then
 		return ""
 	end
-	return ("%s\n```diff\n%s```"):format(label, output)
+	return "```diff\n" .. output .. "\n```"
 end
 
 --- Get the cursor line number (1-based) from the specified window.
@@ -136,7 +135,7 @@ local function get_git_hunk(source_winid)
 	end
 
 	dlog("hunk: git found hunk at line " .. cursor_line)
-	return wrap_diff("#diff:hunk", hunk)
+	return wrap_diff(hunk)
 end
 
 --- Try to get hunk from built-in diff mode.
@@ -170,8 +169,8 @@ local function try_builtin_diff(source_winid)
 				if diff_output and diff_output ~= "" then
 					local hunk = extract_hunk_from_diff(diff_output, cursor_line)
 					if hunk ~= "" then
-						dlog("hunk: built-in diff found hunk at line " .. cursor_line)
-						return wrap_diff("#diff:hunk", hunk)
+				dlog("hunk: built-in diff found hunk at line " .. cursor_line)
+					return wrap_diff(hunk)
 					end
 				end
 			end
@@ -222,7 +221,7 @@ local function get_fugitive_hunk(source_winid)
 	end
 
 	dlog("hunk: fugitive found hunk for " .. filename .. " at line " .. file_line)
-	return wrap_diff("#diff:hunk", hunk)
+	return wrap_diff(hunk)
 end
 
 --- Resolve `#diff:hunk` — hunk at cursor position.
@@ -295,7 +294,7 @@ local function resolve_file(filename)
 		return ""
 	end
 
-	return wrap_diff("#diff:" .. filename, out)
+	return wrap_diff(out)
 end
 
 --- Resolve `#diff:unstaged` — all unstaged changes.
@@ -310,7 +309,7 @@ local function resolve_unstaged()
 		vim.notify("Briefing: #diff:unstaged — no unstaged changes", vim.log.levels.WARN)
 		return ""
 	end
-	return wrap_diff("#diff:unstaged", out)
+	return wrap_diff(out)
 end
 
 --- Resolve `#diff:staged` — staged changes.
@@ -325,7 +324,7 @@ local function resolve_staged()
 		vim.notify("Briefing: #diff:staged — no staged changes", vim.log.levels.WARN)
 		return ""
 	end
-	return wrap_diff("#diff:staged", out)
+	return wrap_diff(out)
 end
 
 --- Resolve `#diff:<sha>` — diff for a specific commit.
@@ -340,7 +339,7 @@ local function resolve_sha(sha)
 	if out == "" then
 		return ""
 	end
-	return wrap_diff("#diff:" .. sha, out)
+	return wrap_diff(out)
 end
 
 --- Resolve the `#diff` context variable.

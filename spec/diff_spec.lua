@@ -216,7 +216,6 @@ describe("briefing.context.diff.resolve() #diff:<filename>", function()
 
 		assert.is_true(result:find("```diff") ~= nil)
 		assert.is_true(result:find("line2_modified") ~= nil)
-		assert.is_true(result:find("#diff:lua/file.lua") ~= nil)
 	end)
 
 	it("handles untracked files", function()
@@ -264,7 +263,6 @@ index 0000000..f1367a7
 		local result = diff_resolver.resolve(".gitignore")
 
 		assert.is_true(result:find("```diff") ~= nil)
-		assert.is_true(result:find("#diff:.gitignore") ~= nil)
 		assert.is_true(result:find("new file mode") ~= nil or result:find("%+") ~= nil)
 	end)
 
@@ -384,7 +382,6 @@ describe("briefing.context.diff.resolve() #diff:staged", function()
 		local result = diff_resolver.resolve("staged")
 
 		assert.is_true(result:find("```diff") ~= nil)
-		assert.is_true(result:find("#diff:staged") ~= nil)
 	end)
 
 	it("warns when no staged changes", function()
@@ -441,7 +438,6 @@ diff --git a/file.lua b/file.lua
 		local result = diff_resolver.resolve("abc123")
 
 		assert.is_true(result:find("```diff") ~= nil)
-		assert.is_true(result:find("#diff:abc123") ~= nil)
 		assert.is_true(result:find("Test commit") ~= nil)
 	end)
 
