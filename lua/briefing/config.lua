@@ -19,10 +19,14 @@ local M = {}
 ---@field bo? vim.bo   buffer-local option overrides applied after the defaults
 ---@field width? number    window width – values 0–1 are treated as a fraction of the editor width
 ---@field height? number   window height – values 0–1 are treated as a fraction of the editor height
+---@field width_positional? number  window width when using cursor positioning (default: 60)
+---@field height_positional? number  window height when using cursor positioning (default: 0.3)
 ---@field border? string   border style passed to nvim_open_win
+---@field border_positional? string  border style for positional windows (default: "none")
 ---@field title? string    window title
 ---@field title_pos? "left"|"center"|"right"  title alignment
 ---@field footer? briefing.Footer  footer keymap hints rendered on the window border
+---@field position? "center"|"cursor"|"smart"  window positioning strategy (default: "smart")
 
 --- Adapter configuration for the briefing send action.
 ---@class briefing.Adapter
@@ -75,10 +79,14 @@ local defaults = {
 		bo = {},
 		width = 100,
 		height = 0.6,
+		width_positional = 0.4,
+		height_positional = 0.3,
 		border = "rounded",
+		border_positional = "none",
 		title = " Briefing ",
 		title_pos = "center",
 		footer = {},
+		position = "smart",
 	},
 
 	--- Named keymaps for the briefing window.

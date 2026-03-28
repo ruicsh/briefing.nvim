@@ -1,4 +1,5 @@
 local config = require("briefing.config")
+local dlog = require("briefing.log").dlog
 
 local M = {}
 
@@ -61,22 +62,75 @@ local function build_footer()
 end
 
 --- Build the win_config table from the current window options.
+---@param is_positional boolean  whether this is a positional context (selection, git hunk, etc.)
 ---@return vim.api.keyset.win_config
-local function build_win_config()
+local function build_win_config(is_positional)
 	local opts = config.options.window
-	local width = resolve_dim(opts.width, vim.o.columns)
-	local height = resolve_dim(opts.height, vim.o.lines)
-	local col = math.floor((vim.o.columns - width) / 2)
-	local row = math.floor((vim.o.lines - height) / 2)
+	local position = opts.position or "smart"
+	local use_cursor_pos = (position == "cursor") or (position == "smart" and is_positional)
+	dlog("build_win_config: position=" .. position .. ", is_positional=" .. tostring(is_positional) .. ", use_cursor_pos=" .. tostring(use_cursor_pos))
+
+	-- Use smaller dimensions for positional (annotation-style) windows
+	local width, height
+	if use_cursor_pos then
+		width = resolve_dim(opts.width_positional or 60, vim.o.columns)
+		height = resolve_dim(opts.height_positional or 0.3, vim.o.lines)
+		dlog("build_win_config: using positional dimensions: width=" .. width .. ", height=" .. height)
+	else
+		width = resolve_dim(opts.width, vim.o.columns)
+		height = resolve_dim(opts.height, vim.o.lines)
+		dlog("build_win_config: using centered dimensions: width=" .. width .. ", height=" .. height)
+	end
+
+	local row, col, relative, border
+	if use_cursor_pos then
+		-- Smart inline positioning with offset to preserve context
+		local offset = 3  -- Gap between cursor and window (lines of context to preserve)
+		local cursor_row = vim.fn.screenrow()
+		local space_below = vim.o.lines - cursor_row
+		local space_above = cursor_row - 1
+
+		dlog("build_win_config: cursor_row=" .. cursor_row .. ", space_above=" .. space_above .. ", space_below=" .. space_below .. ", height=" .. height .. ", offset=" .. offset)
+
+		if space_below >= height + offset + 1 then
+			-- Enough space below cursor with offset
+			relative = "cursor"
+			row = offset + 1  -- Position below cursor with gap
+			col = 0
+			border = opts.border
+			dlog("build_win_config: positioning BELOW cursor with offset, row=" .. row)
+		elseif space_above >= height + offset then
+			-- Not enough space below, place above cursor with offset
+			relative = "cursor"
+			row = -height - offset  -- Position above cursor with gap
+			col = 0
+			border = opts.border
+			dlog("build_win_config: positioning ABOVE cursor with offset, row=" .. row)
+		else
+			-- Not enough space either way, fall back to centered (but keep smaller dims)
+			relative = "editor"
+			row = math.floor((vim.o.lines - height) / 2)
+			col = math.floor((vim.o.columns - width) / 2)
+			border = opts.border
+			dlog("build_win_config: FALLBACK to centered due to insufficient space, row=" .. row)
+		end
+	else
+		-- Center in editor
+		relative = "editor"
+		row = math.floor((vim.o.lines - height) / 2)
+		col = math.floor((vim.o.columns - width) / 2)
+		border = opts.border
+		dlog("build_win_config: CENTERED at row=" .. row)
+	end
 
 	local wc = {
-		relative = "editor",
+		relative = relative,
 		width = width,
 		height = height,
 		col = col,
 		row = row,
 		style = "minimal",
-		border = opts.border,
+		border = border,
 		title = opts.title,
 		title_pos = opts.title_pos or "center",
 	}
@@ -152,6 +206,7 @@ end
 ---@class VisualState
 ---@field anchor string|nil  "line,col" format
 ---@field cursor string|nil  "line,col" format
+---@field screen_row integer|nil  screen row position for window positioning
 
 --- Capture visual selection state if currently in visual mode.
 --- Yanks the selection to register z for later resolution.
@@ -161,8 +216,15 @@ local function capture_visual_state()
 	local visual_modes = { v = true, V = true, ["\22"] = true }
 
 	if not visual_modes[mode] then
-		return { anchor = nil, cursor = nil }
+		dlog("capture_visual_state: not in visual mode, mode=" .. mode)
+		return { anchor = nil, cursor = nil, screen_row = nil }
 	end
+
+	dlog("capture_visual_state: in visual mode, mode=" .. mode)
+
+	-- Capture screen position BEFORE yanking (yank exits visual mode)
+	local screen_row = vim.fn.screenrow()
+	dlog("capture_visual_state: captured screen_row=" .. screen_row)
 
 	-- Yank to register z for resolve
 	vim.cmd('normal! "zY')
@@ -175,7 +237,7 @@ local function capture_visual_state()
 	local current_buf = vim.api.nvim_get_current_buf()
 	vim.t.briefing_prev_filetype = vim.bo[current_buf].filetype or ""
 
-	local result = { anchor = nil, cursor = nil }
+	local result = { anchor = nil, cursor = nil, screen_row = screen_row }
 	if anchor[2] > 0 and cursor[2] > 0 then
 		result.anchor = anchor[2] .. "," .. anchor[3]
 		result.cursor = cursor[2] .. "," .. cursor[3]
@@ -232,8 +294,21 @@ function M.open()
 	vim.t.briefing_prev_vis_anchor = vis_state.anchor
 	vim.t.briefing_prev_vis_cursor = vis_state.cursor
 
+	-- Detect positional context (selection, git hunks, etc.)
+	local is_positional = vis_state.anchor ~= nil
+	dlog("open: is_positional from visual=" .. tostring(is_positional))
+	local fugitive_ctx = nil
+	if not is_positional then
+		local prev_winid = vim.t.briefing_prev_winid
+		local fugitive = require("briefing.context.fugitive")
+		fugitive_ctx = prev_winid and fugitive.get_context(prev_winid) or nil
+		is_positional = fugitive_ctx ~= nil
+		dlog("open: is_positional from fugitive=" .. tostring(is_positional))
+	end
+	dlog("open: final is_positional=" .. tostring(is_positional))
+
 	-- Build win_config and allow the user callback to mutate it
-	local wc = build_win_config()
+	local wc = build_win_config(is_positional)
 	if config.options.window.config then
 		config.options.window.config(wc)
 	end
@@ -268,33 +343,27 @@ function M.open()
 	if vis_state.anchor then
 		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#selection", "", "" })
 		vim.api.nvim_win_set_cursor(winid, { 3, 0 })
-	else
-		-- Check for fugitive context and auto-insert appropriate token
-		local prev_winid = vim.t.briefing_prev_winid
-		local fugitive = require("briefing.context.fugitive")
-		local ctx = prev_winid and fugitive.get_context(prev_winid) or nil
-
-		if ctx then
-			if ctx.type == "hunk" then
-				-- On a diff/hunk line - insert #diff:hunk to get just this hunk
-				-- The diff resolver will use the prev_winid to figure out which file and line
-				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#diff:hunk", "", "" })
-				vim.api.nvim_win_set_cursor(winid, { 3, 0 })
-			elseif ctx.type == "file" then
-				-- On a filename line - insert #diff:<filename> to get whole file diff
-				local token = "#diff:" .. ctx.path
-				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { token, "", "" })
-				vim.api.nvim_win_set_cursor(winid, { 3, 0 })
-			elseif ctx.type == "diff" then
-				-- On a git diff buffer but not on a hunk line - insert #diff to get whole diff
-				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#diff", "", "" })
-				vim.api.nvim_win_set_cursor(winid, { 3, 0 })
-			else
-				vim.cmd("startinsert")
-			end
+	elseif fugitive_ctx then
+		-- Insert appropriate token based on fugitive context
+		if fugitive_ctx.type == "hunk" then
+			-- On a diff/hunk line - insert #diff:hunk to get just this hunk
+			-- The diff resolver will use the prev_winid to figure out which file and line
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#diff:hunk", "", "" })
+			vim.api.nvim_win_set_cursor(winid, { 3, 0 })
+		elseif fugitive_ctx.type == "file" then
+			-- On a filename line - insert #diff:<filename> to get whole file diff
+			local token = "#diff:" .. fugitive_ctx.path
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { token, "", "" })
+			vim.api.nvim_win_set_cursor(winid, { 3, 0 })
+		elseif fugitive_ctx.type == "diff" then
+			-- On a git diff buffer but not on a hunk line - insert #diff to get whole diff
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#diff", "", "" })
+			vim.api.nvim_win_set_cursor(winid, { 3, 0 })
 		else
 			vim.cmd("startinsert")
 		end
+	else
+		vim.cmd("startinsert")
 	end
 end
 

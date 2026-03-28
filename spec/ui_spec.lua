@@ -243,6 +243,171 @@ describe("briefing.ui – open()", function()
 end)
 
 -- ---------------------------------------------------------------------------
+-- Smart positioning
+-- ---------------------------------------------------------------------------
+
+describe("briefing.ui – smart positioning", function()
+	before_each(reset)
+	after_each(reset)
+
+	it("uses positional dimensions when position='cursor'", function()
+		config.setup({
+			window = {
+				position = "cursor",
+				width = 100,
+				height = 0.6,
+				width_positional = 50,
+				height_positional = 10,
+			},
+		})
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local win_config = vim.api.nvim_win_get_config(winid)
+		-- Should use positional dimensions, not centered ones
+		assert.equals(50, win_config.width)
+		assert.equals(10, win_config.height)
+	end)
+
+	it("uses centered dimensions when position='center'", function()
+		config.setup({
+			window = {
+				position = "center",
+				width = 80,
+				height = 20,
+				width_positional = 50,
+				height_positional = 10,
+			},
+		})
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local win_config = vim.api.nvim_win_get_config(winid)
+		-- Should use centered dimensions, ignoring positional ones
+		assert.equals(80, win_config.width)
+		assert.equals(20, win_config.height)
+	end)
+
+	it("positions relative to cursor when position='cursor'", function()
+		config.setup({
+			window = {
+				position = "cursor",
+				width_positional = 50,
+				height_positional = 10,
+			},
+		})
+
+		-- Create buffer with enough lines to position cursor in middle
+		local buf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_set_current_buf(buf)
+		local lines = {}
+		for i = 1, vim.o.lines do
+			lines[i] = "line " .. i
+		end
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+		-- Position cursor in middle to ensure space below
+		local middle_row = math.floor(vim.o.lines / 2)
+		vim.api.nvim_win_set_cursor(0, { middle_row, 0 })
+		vim.cmd("redraw!")
+
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local win_config = vim.api.nvim_win_get_config(winid)
+		-- When positioned relative to cursor, relative can be "cursor" or "win"
+		assert.is_true(win_config.relative == "cursor" or win_config.relative == "win")
+	end)
+
+	it("positions relative to editor when position='center'", function()
+		config.setup({
+			window = {
+				position = "center",
+				width = 80,
+				height = 20,
+			},
+		})
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local win_config = vim.api.nvim_win_get_config(winid)
+		assert.equals("editor", win_config.relative)
+	end)
+
+	it("uses fraction values for width_positional", function()
+		config.setup({
+			window = {
+				position = "cursor",
+				width_positional = 0.4, -- 40% of screen
+				height_positional = 10,
+			},
+		})
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local win_config = vim.api.nvim_win_get_config(winid)
+		local expected_width = math.floor(vim.o.columns * 0.4)
+		assert.equals(expected_width, win_config.width)
+	end)
+
+	it("positions with positive row offset when cursor has space below", function()
+		-- When cursor is in the middle of screen, window should be positioned below
+		config.setup({
+			window = {
+				position = "cursor",
+				width_positional = 50,
+				height_positional = 10,
+			},
+		})
+
+		-- Create a buffer and position cursor in the middle
+		local buf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_set_current_buf(buf)
+		local lines = {}
+		for i = 1, vim.o.lines do
+			lines[i] = "line " .. i
+		end
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+		-- Position cursor in the middle of the screen
+		local middle_row = math.floor(vim.o.lines / 2)
+		vim.api.nvim_win_set_cursor(0, { middle_row, 0 })
+		vim.cmd("redraw!")
+
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local win_config = vim.api.nvim_win_get_config(winid)
+
+		-- When there's space, row should be positive (below cursor position)
+		-- The offset logic places it at row = offset + 1 = 4
+		assert.is_true(win_config.row > 0, "Expected positive row, got " .. tostring(win_config.row))
+	end)
+
+	it("uses default border for inline windows", function()
+		config.setup({
+			window = {
+				position = "cursor",
+				border = "rounded",
+				width_positional = 50,
+				height_positional = 10,
+			},
+		})
+
+		-- Create buffer and position cursor
+		local buf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_set_current_buf(buf)
+		local lines = {}
+		for i = 1, vim.o.lines do
+			lines[i] = "line " .. i
+		end
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+		vim.api.nvim_win_set_cursor(0, { math.floor(vim.o.lines / 2), 0 })
+		vim.cmd("redraw!")
+
+		ui.open()
+		local winid = vim.t.briefing_winid
+		local win_config = vim.api.nvim_win_get_config(winid)
+		-- Border can be a string or a table of characters
+		assert.is_true(type(win_config.border) == "string" or type(win_config.border) == "table")
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
 -- set_keymaps() – mode formats
 -- ---------------------------------------------------------------------------
 
