@@ -269,7 +269,28 @@ function M.open()
 		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#selection", "", "" })
 		vim.api.nvim_win_set_cursor(winid, { 3, 0 })
 	else
-		vim.cmd("startinsert")
+		-- Check for fugitive context and auto-insert appropriate token
+		local prev_winid = vim.t.briefing_prev_winid
+		local fugitive = require("briefing.context.fugitive")
+		local ctx = prev_winid and fugitive.get_context(prev_winid) or nil
+
+		if ctx then
+			if ctx.type == "hunk" then
+				-- On a diff/hunk line - insert #diff:hunk to get just this hunk
+				-- The diff resolver will use the prev_winid to figure out which file and line
+				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#diff:hunk", "", "" })
+				vim.api.nvim_win_set_cursor(winid, { 3, 0 })
+			elseif ctx.type == "file" then
+				-- On a filename line - insert #diff:<filename> to get whole file diff
+				local token = "#diff:" .. ctx.path
+				vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { token, "", "" })
+				vim.api.nvim_win_set_cursor(winid, { 3, 0 })
+			else
+				vim.cmd("startinsert")
+			end
+		else
+			vim.cmd("startinsert")
+		end
 	end
 end
 

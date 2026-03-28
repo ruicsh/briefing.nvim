@@ -145,7 +145,7 @@ function M.resolve(token, prev_winid)
 	elseif token.name == "diagnostics" then
 		return require("briefing.context.diagnostics").resolve(token.suboption, prev_winid)
 	elseif token.name == "diff" then
-		return require("briefing.context.diff").resolve(token.suboption)
+		return require("briefing.context.diff").resolve(token.suboption, prev_winid)
 	elseif token.name == "file" then
 		return require("briefing.context.file").resolve(token.suboption)
 	elseif token.name == "quickfix" then
