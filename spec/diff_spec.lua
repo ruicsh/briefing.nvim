@@ -326,11 +326,15 @@ diff --git a/file2.lua b/file2.lua
 		assert.is_true(result:find("file2.lua") ~= nil)
 	end)
 
-	it("defaults to unstaged when suboption is nil", function()
-		mock_git_output = "diff --git a/file.lua b/file.lua"
+	it("defaults to buffer when suboption is nil", function()
+		local bufnr = create_test_buffer({ "line1", "line2" }, vim.fn.getcwd() .. "/test.lua")
+		local winid = create_test_window(bufnr)
 
-		local result = diff_resolver.resolve(nil)
+		mock_git_output = "diff --git a/test.lua b/test.lua"
 
+		local result = diff_resolver.resolve(nil, winid)
+
+		cleanup(bufnr, winid)
 		assert.is_true(result:find("```diff") ~= nil)
 	end)
 

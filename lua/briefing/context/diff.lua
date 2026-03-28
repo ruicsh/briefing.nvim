@@ -365,22 +365,22 @@ local function resolve_sha(sha)
 end
 
 --- Resolve the `#diff` context variable.
---- Suboptions: "unstaged" (default), "staged", "hunk", "buffer", or a commit SHA.
----@param suboption? string  "unstaged", "staged", "hunk", "buffer", a sha, filepath, or nil (defaults to "unstaged")
+--- Suboptions: "buffer" (default), "staged", "hunk", "unstaged", or a commit SHA.
+---@param suboption? string  "buffer", "staged", "hunk", "unstaged", a sha, filepath, or nil (defaults to "buffer")
 ---@param prev_winid? integer  window handle that was active before briefing opened
 ---@return string
 function M.resolve(suboption, prev_winid)
 	-- Use prev_winid if valid, otherwise use current window
 	local source_winid = prev_winid and vim.api.nvim_win_is_valid(prev_winid) and prev_winid or 0
 
-	if suboption == nil or suboption == "unstaged" then
+	if suboption == nil or suboption == "buffer" then
+		return resolve_buffer(source_winid)
+	elseif suboption == "unstaged" then
 		return resolve_unstaged()
 	elseif suboption == "staged" then
 		return resolve_staged()
 	elseif suboption == "hunk" then
 		return resolve_hunk(source_winid)
-	elseif suboption == "buffer" then
-		return resolve_buffer(source_winid)
 	elseif suboption and (suboption:match("^[%w%./_%-]+") or suboption:match("%.")) then
 		-- Check if it looks like a file path (contains / or starts with .)
 		if suboption:find("/") or suboption:match("^%.") then

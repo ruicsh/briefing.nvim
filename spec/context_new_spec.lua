@@ -351,19 +351,43 @@ describe("briefing.context.diff.resolve()", function()
 		end
 	end
 
-	it("resolve(nil) returns unstaged diff wrapped in a diff block", function()
-		stub_system("diff content\n", 0)
-		local result = diff_resolver.resolve(nil)
+	it("resolve(nil) returns buffer diff wrapped in a diff block", function()
+		local bufnr = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_name(bufnr, vim.fn.getcwd() .. "/test.lua")
+		local winid = vim.api.nvim_open_win(bufnr, false, {
+			relative = "editor",
+			width = 10,
+			height = 10,
+			col = 0,
+			row = 0,
+			style = "minimal",
+		})
+		stub_system("buffer diff content\n", 0)
+		local result = diff_resolver.resolve(nil, winid)
+		vim.api.nvim_win_close(winid, true)
+		vim.api.nvim_buf_delete(bufnr, { force = true })
 		assert.is_true(result:find("```diff") ~= nil)
-		assert.is_true(result:find("diff content") ~= nil)
+		assert.is_true(result:find("buffer diff content") ~= nil)
 	end)
 
-	it("resolve('unstaged') behaves the same as resolve(nil)", function()
-		stub_system("unstaged diff\n", 0)
-		local r_nil = diff_resolver.resolve(nil)
-		stub_system("unstaged diff\n", 0)
-		local r_us = diff_resolver.resolve("unstaged")
-		assert.equals(r_nil, r_us)
+	it("resolve('buffer') behaves the same as resolve(nil)", function()
+		local bufnr = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_name(bufnr, vim.fn.getcwd() .. "/test.lua")
+		local winid = vim.api.nvim_open_win(bufnr, false, {
+			relative = "editor",
+			width = 10,
+			height = 10,
+			col = 0,
+			row = 0,
+			style = "minimal",
+		})
+		stub_system("buffer diff\n", 0)
+		local r_nil = diff_resolver.resolve(nil, winid)
+		stub_system("buffer diff\n", 0)
+		local r_buf = diff_resolver.resolve("buffer", winid)
+		vim.api.nvim_win_close(winid, true)
+		vim.api.nvim_buf_delete(bufnr, { force = true })
+		assert.equals(r_nil, r_buf)
 	end)
 
 	it("resolve('staged') returns staged diff wrapped in a diff block", function()

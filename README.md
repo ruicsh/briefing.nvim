@@ -86,7 +86,7 @@ Context variables insert editor state into your prompt.
 | `#diagnostics`          | LSP diagnostics for current buffer (default)   | Same as `#diagnostics:buffer`                    |
 | `#diagnostics:buffer`   | LSP diagnostics for current buffer             | —                                                |
 | `#diagnostics:all`      | LSP diagnostics for entire workspace           | —                                                |
-| `#diff`                 | Unstaged changes (default)                     | Same as `#diff:unstaged`                         |
+| `#diff`                 | Changed portions of current buffer (default)   | Same as `#diff:buffer`                           |
 | `#diff:staged`          | Staged changes                                 | —                                                |
 | `#diff:buffer`          | Changed portions of current buffer             | `<Tab>` opens buffer picker                      |
 | `#diff:hunk`            | Hunk at cursor position                        | Works in normal buffers, diff mode, and fugitive |
