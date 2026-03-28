@@ -343,11 +343,60 @@ local function resolve_diff(source_winid)
 	return resolve_buffer(source_winid)
 end
 
+--- Get hunk from a codediff buffer.
+---@param source_winid integer Window handle for the source window
+---@return string
+local function get_codediff_hunk(source_winid)
+	local codediff = require("briefing.context.codediff")
+	local filename, file_line = codediff.get_file_info_for_hunk(source_winid)
+
+	if not filename then
+		vim.notify("Briefing: #diff:hunk — could not determine filename from codediff buffer", vim.log.levels.WARN)
+		return ""
+	end
+
+	if not file_line then
+		vim.notify("Briefing: #diff:hunk — could not determine file line from codediff buffer", vim.log.levels.WARN)
+		return ""
+	end
+
+	-- Use git diff with context lines to get hunks
+	local out, ok = git({ "git", "diff", "-U3", "--", filename })
+	if not ok then
+		-- Try staged if unstaged fails or is empty
+		out, ok = git({ "git", "diff", "--cached", "-U3", "--", filename })
+		if not ok then
+			vim.notify("Briefing: #diff:hunk — git diff failed: " .. out, vim.log.levels.WARN)
+			return ""
+		end
+	end
+
+	if out == "" then
+		vim.notify("Briefing: #diff:hunk — no changes found in " .. filename, vim.log.levels.WARN)
+		return ""
+	end
+
+	local hunk = extract_hunk_from_diff(out, file_line)
+	if hunk == "" then
+		vim.notify("Briefing: #diff:hunk — cursor not in any hunk at line " .. file_line, vim.log.levels.WARN)
+		return ""
+	end
+
+	dlog("hunk: codediff found hunk for " .. filename .. " at line " .. file_line)
+	return wrap_diff(hunk)
+end
+
 --- Resolve `#diff:hunk` — hunk at cursor position.
 ---@param source_winid integer Window handle for the source window
 ---@return string
 local function resolve_hunk(source_winid)
-	-- First check if we're in a git diff buffer (filetype "git")
+	-- First check if we're in a codediff buffer
+	local codediff = require("briefing.context.codediff")
+	if codediff.is_codediff(source_winid) then
+		return get_codediff_hunk(source_winid)
+	end
+
+	-- Then check if we're in a git diff buffer (filetype "git")
 	local fugitive = require("briefing.context.fugitive")
 	if fugitive.is_git_diff(source_winid) then
 		return get_git_filetype_hunk(source_winid)

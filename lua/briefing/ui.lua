@@ -68,7 +68,14 @@ local function build_win_config(is_positional)
 	local opts = config.options.window
 	local position = opts.position or "smart"
 	local use_cursor_pos = (position == "cursor") or (position == "smart" and is_positional)
-	dlog("build_win_config: position=" .. position .. ", is_positional=" .. tostring(is_positional) .. ", use_cursor_pos=" .. tostring(use_cursor_pos))
+	dlog(
+		"build_win_config: position="
+			.. position
+			.. ", is_positional="
+			.. tostring(is_positional)
+			.. ", use_cursor_pos="
+			.. tostring(use_cursor_pos)
+	)
 
 	-- Use smaller dimensions for positional (annotation-style) windows
 	local width, height
@@ -85,24 +92,35 @@ local function build_win_config(is_positional)
 	local row, col, relative, border
 	if use_cursor_pos then
 		-- Smart inline positioning with offset to preserve context
-		local offset = 3  -- Gap between cursor and window (lines of context to preserve)
+		local offset = 3 -- Gap between cursor and window (lines of context to preserve)
 		local cursor_row = vim.fn.screenrow()
 		local space_below = vim.o.lines - cursor_row
 		local space_above = cursor_row - 1
 
-		dlog("build_win_config: cursor_row=" .. cursor_row .. ", space_above=" .. space_above .. ", space_below=" .. space_below .. ", height=" .. height .. ", offset=" .. offset)
+		dlog(
+			"build_win_config: cursor_row="
+				.. cursor_row
+				.. ", space_above="
+				.. space_above
+				.. ", space_below="
+				.. space_below
+				.. ", height="
+				.. height
+				.. ", offset="
+				.. offset
+		)
 
 		if space_below >= height + offset + 1 then
 			-- Enough space below cursor with offset
 			relative = "cursor"
-			row = offset + 1  -- Position below cursor with gap
+			row = offset + 1 -- Position below cursor with gap
 			col = 0
 			border = opts.border
 			dlog("build_win_config: positioning BELOW cursor with offset, row=" .. row)
 		elseif space_above >= height + offset then
 			-- Not enough space below, place above cursor with offset
 			relative = "cursor"
-			row = -height - offset  -- Position above cursor with gap
+			row = -height - offset -- Position above cursor with gap
 			col = 0
 			border = opts.border
 			dlog("build_win_config: positioning ABOVE cursor with offset, row=" .. row)
@@ -298,12 +316,22 @@ function M.open()
 	local is_positional = vis_state.anchor ~= nil
 	dlog("open: is_positional from visual=" .. tostring(is_positional))
 	local fugitive_ctx = nil
+	local codediff_ctx = nil
+
 	if not is_positional then
 		local prev_winid = vim.t.briefing_prev_winid
 		local fugitive = require("briefing.context.fugitive")
 		fugitive_ctx = prev_winid and fugitive.get_context(prev_winid) or nil
 		is_positional = fugitive_ctx ~= nil
 		dlog("open: is_positional from fugitive=" .. tostring(is_positional))
+
+		-- Check for codediff.nvim if not a fugitive context
+		if not is_positional and prev_winid then
+			local codediff = require("briefing.context.codediff")
+			codediff_ctx = codediff.get_context(prev_winid)
+			is_positional = codediff_ctx ~= nil
+			dlog("open: is_positional from codediff=" .. tostring(is_positional))
+		end
 	end
 	dlog("open: final is_positional=" .. tostring(is_positional))
 
@@ -343,6 +371,7 @@ function M.open()
 	if vis_state.anchor then
 		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#selection", "", "" })
 		vim.api.nvim_win_set_cursor(winid, { 3, 0 })
+		vim.cmd("startinsert")
 	elseif fugitive_ctx then
 		-- Insert appropriate token based on fugitive context
 		if fugitive_ctx.type == "hunk" then
@@ -362,6 +391,11 @@ function M.open()
 		else
 			vim.cmd("startinsert")
 		end
+	elseif codediff_ctx then
+		-- Insert #diff:hunk for codediff context
+		-- The diff resolver will use the prev_winid to extract the hunk
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#diff:hunk", "", "" })
+		vim.api.nvim_win_set_cursor(winid, { 3, 0 })
 	else
 		vim.cmd("startinsert")
 	end
