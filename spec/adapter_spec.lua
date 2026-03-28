@@ -365,43 +365,7 @@ describe("briefing.adapter.sidekick", function()
 		assert.equals("opencode", received.name)
 	end)
 
-	it("translates #buffer:all to @<path> when tool is opencode", function()
-		local received = nil
-		package.preload["sidekick.cli"] = function()
-			return {
-				send = function(opts)
-					received = opts
-				end,
-			}
-		end
-
-		config.setup({ adapter = { sidekick = { tool = "opencode" } } })
-		package.loaded["briefing.adapter.sidekick"] = nil
-		sidekick_adapter = require("briefing.adapter.sidekick")
-
-		local bufnr = vim.api.nvim_create_buf(true, false)
-		vim.api.nvim_buf_set_name(bufnr, "/tmp/test_briefing_file.lua")
-		local winid = vim.api.nvim_open_win(bufnr, false, {
-			relative = "editor",
-			width = 10,
-			height = 1,
-			row = 0,
-			col = 0,
-		})
-
-		local expected_path = vim.api.nvim_buf_get_name(bufnr)
-
-		local tokens = { { type = "context", name = "buffer", suboption = "all", raw = "#buffer:all" } }
-		sidekick_adapter.send("see #buffer:all", tokens, winid)
-
-		vim.api.nvim_win_close(winid, true)
-		vim.api.nvim_buf_delete(bufnr, { force = true })
-
-		assert.is_not_nil(received)
-		assert.equals("see @" .. expected_path, text_to_string(received.text))
-	end)
-
-	it("self-resolves #buffer:diff inline even when tool is opencode", function()
+	it("self-resolves #diff:buffer inline even when tool is opencode", function()
 		local received = nil
 		package.preload["sidekick.cli"] = function()
 			return {
@@ -421,8 +385,8 @@ describe("briefing.adapter.sidekick", function()
 		package.loaded["briefing.adapter.sidekick"] = nil
 		sidekick_adapter = require("briefing.adapter.sidekick")
 
-		local tokens = { { type = "context", name = "buffer", suboption = "diff", raw = "#buffer:diff" } }
-		sidekick_adapter.send("see #buffer:diff", tokens, nil)
+		local tokens = { { type = "context", name = "diff", suboption = "buffer", raw = "#diff:buffer" } }
+		sidekick_adapter.send("see #diff:buffer", tokens, nil)
 
 		assert.is_not_nil(received)
 		assert.equals("see DIFF_CONTENT", text_to_string(received.text))

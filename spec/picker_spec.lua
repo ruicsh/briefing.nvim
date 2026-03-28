@@ -10,23 +10,16 @@ describe("briefing.picker", function()
 			assert.equals(12, start_col)
 		end)
 
-		it("matches #buffer:diff: at end of line", function()
-			local line = "Check #buffer:diff:"
+		it("matches #diff:buffer: at end of line", function()
+			local line = "Check #diff:buffer:"
 			local col = #line
 			local pattern, start_col = picker.get_buffer_pattern(line, col)
-			assert.equals("buffer:diff", pattern)
+			assert.equals("diff:buffer", pattern)
 			assert.equals(7, start_col)
 		end)
 
 		it("returns nil when cursor is not after pattern", function()
 			local line = "Check #buffer: all"
-			local col = #line
-			local pattern = picker.get_buffer_pattern(line, col)
-			assert.is_nil(pattern)
-		end)
-
-		it("returns nil for #buffer:all", function()
-			local line = "Check #buffer:all"
 			local col = #line
 			local pattern = picker.get_buffer_pattern(line, col)
 			assert.is_nil(pattern)
@@ -140,8 +133,8 @@ describe("briefing.picker", function()
 			assert.equals("Check #file:lua/test.lua ", captured_lines[1])
 		end)
 
-		it("replaces #buffer:diff: with #file:<relative_path>", function()
-			local initial_line = "Check #buffer:diff:"
+		it("replaces #diff:buffer: with #file:<relative_path>", function()
+			local initial_line = "Check #diff:buffer:"
 			captured_lines = { initial_line }
 
 			vim.api.nvim_buf_get_lines = function(_, _, _, _)
@@ -159,7 +152,7 @@ describe("briefing.picker", function()
 
 			picker.open_picker({
 				type = "buffer",
-				pattern = "buffer:diff",
+				pattern = "diff:buffer",
 				start_col = 7,
 				line_nr = 1,
 			})
@@ -660,7 +653,5 @@ describe("briefing.picker", function()
 		local matched = picker.get_file_pattern(line, col)
 		assert.is_false(matched)
 	end)
-end)
-
 	end)
 end)

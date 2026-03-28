@@ -81,15 +81,14 @@ Context variables insert editor state into your prompt.
 
 | Variable                | Description                                    | Notes                                            |
 | ----------------------- | ---------------------------------------------- | ------------------------------------------------ |
-| `#buffer`               | Current buffer contents (default)              | Same as `#buffer:diff`                           |
-| `#buffer:diff`          | Changed portions of current buffer             | —                                                |
-| `#buffer:all`           | Entire buffer contents                         | —                                                |
+| `#buffer`               | Current buffer contents                        | —                                                |
 | `#selection`            | Visual selection captured when Briefing opened | Resolves to empty if no selection was active     |
 | `#diagnostics`          | LSP diagnostics for current buffer (default)   | Same as `#diagnostics:buffer`                    |
 | `#diagnostics:buffer`   | LSP diagnostics for current buffer             | —                                                |
 | `#diagnostics:all`      | LSP diagnostics for entire workspace           | —                                                |
 | `#diff`                 | Unstaged changes (default)                     | Same as `#diff:unstaged`                         |
 | `#diff:staged`          | Staged changes                                 | —                                                |
+| `#diff:buffer`          | Changed portions of current buffer             | `<Tab>` opens buffer picker                      |
 | `#diff:hunk`            | Hunk at cursor position                        | Works in normal buffers, diff mode, and fugitive |
 | `#diff:<file>`          | Diff for a specific file                       | e.g. `#diff:src/foo.lua`                         |
 | `#diff:<sha>`           | Diff for a specific commit                     | e.g. `#diff:abc123`                              |
@@ -110,11 +109,12 @@ Resources are explicit references to external content. Type `@` then `<tab>` to 
 
 When `<Tab>` is pressed after a token that accepts input, an interactive picker opens:
 
-| Trigger            | Picker           | Result                                       |
-| ------------------ | ---------------- | -------------------------------------------- |
-| `#file:<Tab>`      | File picker      | `#file:src/foo.lua` (multi-select supported) |
-| `@<Tab>`           | File picker      | `@src/foo.lua`                               |
-| `#buffer:<Tab>`    | Buffer picker    | Select from open buffers                     |
+| Trigger              | Picker           | Result                                       |
+| ------------------   | ---------------- | -------------------------------------------- |
+| `#file:<Tab>`        | File picker      | `#file:src/foo.lua` (multi-select supported) |
+| `@<Tab>`             | File picker      | `@src/foo.lua`                               |
+| `#buffer:<Tab>`      | Buffer picker    | Select from open buffers                     |
+| `#diff:buffer:<Tab>` | Buffer picker    | `#file:path/to/buffer`                       |
 
 Multi-select in the file picker produces separate tokens: `#file:a.lua #file:b.lua`.
 
@@ -245,7 +245,7 @@ Adapters translate your resolved prompt into the format expected by each agent.
 
 ### `sidekick` (default)
 
-Sends the prompt through [sidekick.nvim](https://github.com/folke/sidekick.nvim). When `tool = "opencode"`, `#buffer` and `#buffer:all` are translated to `@<absolute-path>` so opencode can resolve the file itself. All other tokens are resolved by briefing.nvim and inlined as text before sending.
+Sends the prompt through [sidekick.nvim](https://github.com/folke/sidekick.nvim). When `tool = "opencode"`, `#buffer` is translated to `@<absolute-path>` so opencode can resolve the file itself. All other tokens are resolved by briefing.nvim and inlined as text before sending.
 
 ```lua
 require("briefing").setup({

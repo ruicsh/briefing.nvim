@@ -24,10 +24,10 @@ end
 function M.get_buffer_pattern(line, col)
 	local text_before = line:sub(1, col)
 
-	-- Pattern: ends with `#buffer:diff:`
-	local start_idx = text_before:find("#buffer:diff:$")
+	-- Pattern: ends with `#diff:buffer:`
+	local start_idx = text_before:find("#diff:buffer:$")
 	if start_idx then
-		return "buffer:diff", start_idx
+		return "diff:buffer", start_idx
 	end
 
 	-- Pattern: ends with `#buffer:`

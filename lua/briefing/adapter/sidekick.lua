@@ -50,7 +50,7 @@ end
 ---@param tool? string
 ---@return string|nil
 local function translate_token(token, prev_winid, tool)
-	if token.name == "buffer" and not (token.suboption and token.suboption ~= "all") then
+	if token.name == "buffer" and not token.suboption then
 		if tool == "opencode" then
 			local winid = prev_winid and vim.api.nvim_win_is_valid(prev_winid) and prev_winid or nil
 			if winid then

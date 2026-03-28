@@ -224,6 +224,28 @@ local function get_fugitive_hunk(source_winid)
 	return wrap_diff(hunk)
 end
 
+--- Resolve `#diff:buffer` — inline `git diff HEAD <buffer_file>` output.
+---@param source_winid integer Window handle for the source window
+---@return string
+local function resolve_buffer(source_winid)
+	local bufnr = vim.api.nvim_win_get_buf(source_winid)
+	local name = vim.api.nvim_buf_get_name(bufnr)
+	if name == "" then
+		vim.notify("Briefing: #diff:buffer — buffer has no file path", vim.log.levels.WARN)
+		return ""
+	end
+
+	local completed = vim.system({ "git", "diff", "HEAD", "--", name }, { text = true }):wait()
+
+	if completed.code ~= 0 then
+		vim.notify("Briefing: #diff:buffer — git diff failed: " .. (completed.stderr or ""), vim.log.levels.WARN)
+		return ""
+	end
+
+	local result = completed.stdout or ""
+	return wrap_diff(result)
+end
+
 --- Resolve `#diff:hunk` — hunk at cursor position.
 ---@param source_winid integer Window handle for the source window
 ---@return string
@@ -343,8 +365,8 @@ local function resolve_sha(sha)
 end
 
 --- Resolve the `#diff` context variable.
---- Suboptions: "unstaged" (default), "staged", "hunk", or a commit SHA.
----@param suboption? string  "unstaged", "staged", "hunk", a sha, filepath, or nil (defaults to "unstaged")
+--- Suboptions: "unstaged" (default), "staged", "hunk", "buffer", or a commit SHA.
+---@param suboption? string  "unstaged", "staged", "hunk", "buffer", a sha, filepath, or nil (defaults to "unstaged")
 ---@param prev_winid? integer  window handle that was active before briefing opened
 ---@return string
 function M.resolve(suboption, prev_winid)
@@ -357,7 +379,9 @@ function M.resolve(suboption, prev_winid)
 		return resolve_staged()
 	elseif suboption == "hunk" then
 		return resolve_hunk(source_winid)
-	elseif suboption and (suboption:match("^[%w%./_%-]+$") or suboption:match("%.")) then
+	elseif suboption == "buffer" then
+		return resolve_buffer(source_winid)
+	elseif suboption and (suboption:match("^[%w%./_%-]+") or suboption:match("%.")) then
 		-- Check if it looks like a file path (contains / or starts with .)
 		if suboption:find("/") or suboption:match("^%.") then
 			return resolve_file(suboption)

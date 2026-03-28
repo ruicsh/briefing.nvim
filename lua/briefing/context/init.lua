@@ -5,7 +5,7 @@ local M = {}
 ---@field type "context"   token kind (always "context" for # tokens)
 ---@field name string      token name, e.g. "buffer", "diagnostics"
 ---@field suboption? string  optional suboption, e.g. "diff", "all"
----@field raw string       the original token text, e.g. "#buffer:diff"
+---@field raw string       the original token text, e.g. "#diff:buffer"
 
 --- Convert @path references to #file:path format.
 --- Matches @ followed by a file path (must contain / or . to distinguish from mentions).
@@ -139,7 +139,7 @@ end
 ---@return string|nil
 function M.resolve(token, prev_winid)
 	if token.name == "buffer" then
-		return require("briefing.context.buffer").resolve(token.suboption, prev_winid)
+		return require("briefing.context.buffer").resolve(prev_winid)
 	elseif token.name == "selection" then
 		return require("briefing.context.selection").resolve()
 	elseif token.name == "diagnostics" then
