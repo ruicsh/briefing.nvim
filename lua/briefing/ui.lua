@@ -367,10 +367,19 @@ function M.open()
 
 	set_keymaps(bufnr)
 
-	-- If opened from visual mode, auto-insert #selection token with spacing
+	-- If opened from visual mode, auto-insert descriptive text and #selection token
 	if vis_state.anchor then
-		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "#selection", "", "" })
-		vim.api.nvim_win_set_cursor(winid, { 3, 0 })
+		local prev_winid = vim.t.briefing_prev_winid
+		local bufname = prev_winid and vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(prev_winid)) or ""
+		local lines
+		if bufname ~= "" then
+			local rel_path = vim.fn.fnamemodify(bufname, ":.")
+			lines = { "on file " .. rel_path .. ":", "#selection", "", "" }
+		else
+			lines = { "#selection", "", "" }
+		end
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+		vim.api.nvim_win_set_cursor(winid, { #lines, 0 })
 		vim.cmd("startinsert")
 	elseif fugitive_ctx then
 		-- Insert appropriate token based on fugitive context
