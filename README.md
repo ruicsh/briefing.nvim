@@ -7,7 +7,7 @@ briefing.nvim opens a floating window for composing natural language prompts enr
 ## Features
 
 - Floating markdown window tuned for writing prompts (wrap, line breaks, no code autocompletion)
-- Context variables (`#buffer`, `#diagnostics`, `#diff`, `#selection`, `#quickfix`, `#file`) that resolve editor state into your prompt
+- Context variables (`#buffer`, `#diagnostics`, `#diff`, `#filepath`, `#selection`, `#quickfix`, `#file`) that resolve editor state into your prompt
 - Resource references (`@<file>`, `@<folder>`, `http(s)://url`) for attaching external content
 - Interactive file and directory pickers via snacks.picker
 - Adapter system to send prompts to different agents (sidekick.nvim or a custom callback)
@@ -102,6 +102,8 @@ Context variables insert editor state into your prompt.
 | `#diff:<file>`        | Diff for a specific file                       | e.g. `#diff:src/foo.lua`                                           |
 | `#diff:<sha>`         | Diff for a specific commit                     | e.g. `#diff:abc123`                                                |
 | `#file:<path>`        | A specific file's content                      | `<Tab>` opens file picker                                          |
+| `#filepath`           | Relative path to the current file              | Resolves to empty for unnamed buffers                             |
+| `#filepath:absolute`  | Absolute path to the current file              | —                                                                  |
 | `#quickfix`           | Quickfix list contents                         | —                                                                  |
 
 ## Resources (`@`)

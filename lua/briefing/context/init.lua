@@ -150,6 +150,8 @@ function M.resolve(token, prev_winid)
 		return require("briefing.context.file").resolve(token.suboption)
 	elseif token.name == "quickfix" then
 		return require("briefing.context.quickfix").resolve()
+	elseif token.name == "filepath" then
+		return require("briefing.context.filepath").resolve(token.suboption, prev_winid)
 	end
 	return nil
 end

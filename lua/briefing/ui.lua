@@ -373,8 +373,7 @@ function M.open()
 		local bufname = prev_winid and vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(prev_winid)) or ""
 		local lines
 		if bufname ~= "" then
-			local rel_path = vim.fn.fnamemodify(bufname, ":.")
-			lines = { "on file " .. rel_path .. ":", "#selection", "", "" }
+			lines = { "on file: #filepath", "", "#selection", "", "" }
 		else
 			lines = { "#selection", "", "" }
 		end
