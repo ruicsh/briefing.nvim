@@ -63,6 +63,24 @@ local function translate_token(token, prev_winid, tool)
 		end
 	end
 
+	-- Translate #buffers to @ references for all listed buffers for opencode
+	if token.name == "buffers" and not token.suboption then
+		if tool == "opencode" then
+			local refs = {}
+			for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+				if vim.bo[bufnr].buflisted then
+					local path = vim.api.nvim_buf_get_name(bufnr)
+					if path and path ~= "" then
+						table.insert(refs, "@" .. vim.fn.fnamemodify(path, ":."))
+					end
+				end
+			end
+			if #refs > 0 then
+				return table.concat(refs, " ")
+			end
+		end
+	end
+
 	-- Translate #file:path to @{path} for opencode
 	if token.name == "file" and token.suboption then
 		if tool == "opencode" then

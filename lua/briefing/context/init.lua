@@ -140,6 +140,8 @@ end
 function M.resolve(token, prev_winid)
 	if token.name == "buffer" then
 		return require("briefing.context.buffer").resolve(prev_winid)
+	elseif token.name == "buffers" then
+		return require("briefing.context.buffers").resolve()
 	elseif token.name == "selection" then
 		return require("briefing.context.selection").resolve()
 	elseif token.name == "diagnostics" then

@@ -7,7 +7,7 @@ briefing.nvim opens a floating window for composing natural language prompts enr
 ## Features
 
 - Floating markdown window tuned for writing prompts (wrap, line breaks, no code autocompletion)
-- Context variables (`#buffer`, `#diagnostics`, `#diff`, `#filepath`, `#selection`, `#quickfix`, `#file`) that resolve editor state into your prompt
+- Context variables (`#buffer`, `#buffers`, `#diagnostics`, `#diff`, `#filepath`, `#selection`, `#quickfix`, `#file`) that resolve editor state into your prompt
 - Resource references (`@<file>`, `@<folder>`, `http(s)://url`) for attaching external content
 - Interactive file and directory pickers via snacks.picker
 - Adapter system to send prompts to different agents (sidekick.nvim or a custom callback)
@@ -91,6 +91,7 @@ Context variables insert editor state into your prompt.
 | Variable              | Description                                    | Notes                                                              |
 | --------------------- | ---------------------------------------------- | ------------------------------------------------------------------ |
 | `#buffer`             | Current buffer contents                        | —                                                                  |
+| `#buffers`            | All listed buffers contents                    | Excludes unlisted, unnamed, and briefing buffers                   |
 | `#selection`          | Visual selection captured when Briefing opened | Resolves to empty if no selection was active                       |
 | `#diagnostics`        | LSP diagnostics for current buffer (default)   | Same as `#diagnostics:buffer`                                      |
 | `#diagnostics:buffer` | LSP diagnostics for current buffer             | —                                                                  |
@@ -256,7 +257,7 @@ Adapters translate your resolved prompt into the format expected by each agent.
 
 ### `sidekick` (default)
 
-Sends the prompt through [sidekick.nvim](https://github.com/folke/sidekick.nvim). When `tool = "opencode"`, `#buffer` is translated to `@<absolute-path>` so opencode can resolve the file itself. All other tokens are resolved by briefing.nvim and inlined as text before sending.
+Sends the prompt through [sidekick.nvim](https://github.com/folke/sidekick.nvim). When `tool = "opencode"`, `#buffer` and `#buffers` are translated to `@<relative-path>` references so opencode can resolve the files itself. All other tokens are resolved by briefing.nvim and inlined as text before sending.
 
 ```lua
 require("briefing").setup({

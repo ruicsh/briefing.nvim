@@ -29,8 +29,9 @@ references — then send the resolved prompt to your agent of choice.
 Features:~                                                                 [1]
     • Floating markdown window tuned for writing prompts (wrap, line breaks,
       no code autocompletion)
-    • Context variables (`#buffer`, `#diagnostics`, `#diff`, `#filepath`,
-      `#selection`, `#quickfix`, `#file`) that resolve editor state into your prompt
+    • Context variables (`#buffer`, `#buffers`, `#diagnostics`, `#diff`,
+      `#filepath`, `#selection`, `#quickfix`, `#file`) that resolve editor state
+      into your prompt
     • Resource references (`@<file>`, `@<folder>`, `http(s)://url`) for
       attaching external content
     • Interactive file and directory pickers via snacks.picker
@@ -121,6 +122,7 @@ Context variables insert editor state into your prompt.
 | Variable                | Description                               | Notes                                           |
 | ----------------------- | ----------------------------------------- | ----------------------------------------------- |
 | `#buffer`               | Current buffer contents                   | —                                               |
+| `#buffers`              | All listed buffers contents               | Excludes unlisted, unnamed, and briefing buffers|
 | `#selection`            | Visual selection captured when Briefing   | Resolves to empty if no selection was active    |
 |                         | opened                                    |                                                 |
 | `#diagnostics`          | LSP diagnostics for current buffer        | Same as `#diagnostics:buffer`                   |
@@ -290,9 +292,9 @@ Adapters translate your resolved prompt into the format expected by each agent.
 
 `sidekick` (default)~                                                      [1]
     Sends the prompt through sidekick.nvim. When `tool = "opencode"`,
-    `#buffer` is translated to `@<absolute-path>` so opencode can resolve the
-    file itself. All other tokens are resolved by briefing.nvim and inlined
-    as text before sending.
+    `#buffer` and `#buffers` are translated to `@<relative-path>` references so
+    opencode can resolve the files itself. All other tokens are resolved by
+    briefing.nvim and inlined as text before sending.
 
 >lua
     require("briefing").setup({
